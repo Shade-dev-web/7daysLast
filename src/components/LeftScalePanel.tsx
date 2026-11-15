@@ -45,11 +45,11 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
     <aside
       aria-label="Шкала выживания и уровня шума"
       data-testid="left-scale-panel"
-      className="fixed left-2 top-2 z-30 flex items-stretch gap-1.5 pointer-events-auto select-none"
+      className="fixed left-2 top-2 z-30 flex items-stretch gap-1.5 pointer-events-none select-none"
     >
       {/* 1. Vertical Acoustic Noise Scale Column (Always Left, Zero Text Clutter) */}
       <div
-        className="w-6 rounded-xl bg-[#0A0C10]/85 border border-white/15 py-1.5 px-1 flex flex-col items-center justify-between shadow-lg"
+        className="w-6 rounded-xl bg-[#0A0C10]/85 border border-white/15 py-1.5 px-1 flex flex-col items-center justify-between"
         title="Шкала шума"
       >
         <svg
@@ -75,7 +75,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
             ref={(el) => {
               scaleRefs.current.vertNoiseFill = el;
             }}
-            className="absolute bottom-0 left-0 right-0 bg-emerald-400/85 transition-[height,background-color] duration-75"
+            className="absolute bottom-0 left-0 right-0 bg-emerald-400/85"
             style={{ height: '5%' }}
           />
           {/* Live horizontal needle */}
@@ -83,14 +83,14 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
             ref={(el) => {
               scaleRefs.current.vertNoiseMarker = el;
             }}
-            className="absolute left-0 right-0 h-1 bg-white shadow-[0_0_6px_#fff] transition-[bottom] duration-75"
+            className="absolute left-0 right-0 h-1 bg-white"
             style={{ bottom: '5%' }}
           />
         </div>
       </div>
 
-      {/* 2. Ultra-Clean Icon-Only Visual Scales & Quick Action Buttons (No Text / No Telemetry) */}
-      <div className="w-[88px] sm:w-[96px] rounded-xl bg-[#0A0C10]/85 border border-white/15 p-1.5 flex flex-col gap-1.5 shadow-lg">
+      {/* 2. Ultra-Clean Icon-Only Visual Scales & Quick Action Buttons */}
+      <div className="w-[88px] rounded-xl bg-[#0A0C10]/85 border border-white/15 p-1.5 flex flex-col gap-1.5">
         {/* Horizontal 3-Zone Noise Scale Bar */}
         <div className="relative h-2 w-full rounded-full bg-black/85 border border-white/20 flex overflow-visible">
           <div className="w-[30%] h-full bg-emerald-700/80 rounded-l-full" />
@@ -107,7 +107,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
             ref={(el) => {
               scaleRefs.current.noiseMarker = el;
             }}
-            className="absolute -top-0.5 w-1.5 h-3 rounded-sm bg-white shadow-[0_0_6px_#fff] -translate-x-1/2 transition-[left] duration-75"
+            className="absolute -top-0.5 w-1.5 h-3 rounded-sm bg-white -translate-x-1/2"
             style={{ left: '5%' }}
           />
         </div>
@@ -121,7 +121,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
               onToggleTorch();
             }}
             aria-label="Переключить фонарик"
-            className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border cursor-pointer ${
+            className={`pointer-events-auto w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border cursor-pointer ${
               torchOn
                 ? 'bg-amber-500 text-black border-amber-300'
                 : 'bg-white/10 text-amber-300 border-white/15'
@@ -137,7 +137,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
               ref={(el) => {
                 scaleRefs.current.batteryBar = el;
               }}
-              className="h-full bg-amber-400 transition-[width] duration-150"
+              className="h-full bg-amber-400"
               style={{ width: '100%' }}
             />
           </div>
@@ -150,7 +150,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
             }}
             disabled={batteriesCount <= 0}
             aria-label="Зарядить фонарик"
-            className="w-6 h-6 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 disabled:opacity-30 border border-amber-400/40 flex items-center justify-center text-amber-300 shrink-0 cursor-pointer"
+            className="pointer-events-auto w-6 h-6 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 disabled:opacity-30 border border-amber-400/40 flex items-center justify-center text-amber-300 shrink-0 cursor-pointer"
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -170,14 +170,14 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
                 ref={(el) => {
                   scaleRefs.current.hpGhost = el;
                 }}
-                className="absolute inset-y-0 left-0 bg-rose-300/40 transition-[width] duration-500"
+                className="absolute inset-y-0 left-0 bg-rose-300/40"
                 style={{ width: '100%' }}
               />
               <div
                 ref={(el) => {
                   scaleRefs.current.hpBar = el;
                 }}
-                className="relative h-full bg-rose-500 transition-[width] duration-150"
+                className="relative h-full bg-rose-500"
                 style={{ width: '100%' }}
               />
             </div>
@@ -194,7 +194,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
                 ref={(el) => {
                   scaleRefs.current.foodBar = el;
                 }}
-                className="h-full bg-amber-500 transition-[width] duration-200"
+                className="h-full bg-amber-500"
                 style={{ width: '85%' }}
               />
             </div>
@@ -210,7 +210,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
                 ref={(el) => {
                   scaleRefs.current.waterBar = el;
                 }}
-                className="h-full bg-sky-400 transition-[width] duration-200"
+                className="h-full bg-sky-400"
                 style={{ width: '85%' }}
               />
             </div>
@@ -226,7 +226,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
                 ref={(el) => {
                   scaleRefs.current.breathBar = el;
                 }}
-                className="h-full bg-cyan-300 transition-[width] duration-100"
+                className="h-full bg-cyan-300"
                 style={{ width: '100%' }}
               />
             </div>
@@ -242,7 +242,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
                 ref={(el) => {
                   scaleRefs.current.doorBar = el;
                 }}
-                className="h-full bg-emerald-500 transition-[width] duration-200"
+                className="h-full bg-emerald-500"
                 style={{ width: '100%' }}
               />
             </div>
@@ -258,7 +258,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
           }}
           data-testid="open-inventory-btn"
           aria-label="Инвентарь и крафт"
-          className="w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/45 text-amber-300 flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
+          className="pointer-events-auto w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/45 text-amber-300 flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />

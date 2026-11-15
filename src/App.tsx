@@ -17,7 +17,7 @@ import {
   CheckpointData,
 } from './game/rules';
 import { sfx } from './game/audio';
-import { createVolumetricBeamMaterial, horrorShaderUniforms } from './game/shaders';
+import { horrorShaderUniforms } from './game/shaders';
 import {
   buildHorrorHouse,
   buildGun,
@@ -271,6 +271,8 @@ export default function App() {
   modRef.current = mod;
   const invOpenRef = useRef(invOpen);
   invOpenRef.current = invOpen;
+  const selDiffRef = useRef(selDiff);
+  selDiffRef.current = selDiff;
 
   // Mutable engine bridge ref so React handlers can invoke 3D engine actions cleanly
   const engineApiRef = useRef<{
@@ -414,44 +416,26 @@ export default function App() {
     } = house;
 
     // Fast Dynamic Horror Lights (1 Hemisphere + 1 Ambient + 1 Active Room Light + 1 Torch SpotLight)
-    const hemi = new THREE.HemisphereLight(0xc8daf0, 0x382d22, 0.42);
+    const hemi = new THREE.HemisphereLight(0xbfd0e0, 0x3a3228, 0.35);
     scene.add(hemi);
-    const amb = new THREE.AmbientLight(0x9aa8bd, 0.18);
+    const amb = new THREE.AmbientLight(0x8a96a8, 0.14);
     scene.add(amb);
 
-    // Single active room PointLight that moves to the player's current room (cuts shader light loops by 3x)
-    const activeRoomLight = new THREE.PointLight(0xffe9cf, 0.75, 15.5, 1.45);
-    activeRoomLight.position.set(5.5, 2.55, 8.6);
+    // Single active room PointLight that moves to the player's current room
+    const activeRoomLight = new THREE.PointLight(0xffe9cf, 0.7, 14, 1.5);
+    activeRoomLight.position.set(5.5, 2.45, 8.6);
     scene.add(activeRoomLight);
 
-    // Flashlight SpotLight + Volumetric Shader Cone (No expensive shadow map pass)
-    const torch = new THREE.SpotLight(0xfff3d6, 0, 21, 0.6, 0.48, 1.1);
+    // Flashlight SpotLight (disabled from shader loop when off via torch.visible)
+    const torch = new THREE.SpotLight(0xfff0d0, 0, 18, 0.56, 0.52, 1.1);
     torch.position.set(0.12, -0.08, 0);
+    torch.visible = false;
     camera.add(torch);
     const tTarget = new THREE.Object3D();
-    tTarget.position.set(0, 0, -3.5);
+    tTarget.position.set(0, 0, -3);
     camera.add(tTarget);
     torch.target = tTarget;
-
-    // Volumetric Flashlight Cone Mesh
-    const beamMat = createVolumetricBeamMaterial();
-    const beamGeo = new THREE.ConeGeometry(1.55, 5.2, 24, 1, true);
-    beamGeo.translate(0, -2.6, 0);
-    beamGeo.rotateX(Math.PI / 2);
-    const beamMesh = new THREE.Mesh(beamGeo, beamMat);
-    beamMesh.position.set(0.12, -0.08, -0.1);
-    beamMesh.visible = false;
-    camera.add(beamMesh);
-
-    // Muzzle Flash PointLight
-    const mLight = new THREE.PointLight(0xffc070, 0, 10, 2);
-    mLight.position.set(0, 0, -0.7);
-    camera.add(mLight);
-
-    // Lightning Flash Directional Light outside windows
-    const lightningLight = new THREE.DirectionalLight(0xcfe4ff, 0);
-    lightningLight.position.set(16, 12, 18);
-    scene.add(lightningLight);
+    let muzzleFlashBoost = 0;
 
     // Viewmodel Setup
     const vm = {
@@ -825,27 +809,33 @@ export default function App() {
       return path;
     };
 
-    // Zombies (3 High-Detail 3D Archetypes: stalker, brute, crawler)
+    // Zombies (3 Archetypes: stalker, brute, crawler with shared materials & low draw calls)
     const ZG = {
-      torso: new THREE.CapsuleGeometry(0.185, 0.4, 6, 14),
-      pelvis: new THREE.BoxGeometry(0.32, 0.14, 0.2),
-      rib: new THREE.TorusGeometry(0.155, 0.018, 6, 14, Math.PI * 1.35),
-      spineBone: new THREE.CylinderGeometry(0.025, 0.025, 0.46, 8),
-      shoulderPad: new THREE.SphereGeometry(0.11, 10, 8),
-      head: new THREE.SphereGeometry(0.14, 16, 14),
-      brow: new THREE.BoxGeometry(0.19, 0.038, 0.09),
-      jaw: new THREE.BoxGeometry(0.115, 0.055, 0.1),
-      tooth: new THREE.BoxGeometry(0.014, 0.022, 0.014),
-      crest: new THREE.ConeGeometry(0.055, 0.11, 7),
-      upperArm: new THREE.CapsuleGeometry(0.055, 0.24, 5, 10),
-      foreArm: new THREE.CapsuleGeometry(0.046, 0.24, 5, 10),
-      hand: new THREE.BoxGeometry(0.07, 0.08, 0.04),
-      claw: new THREE.ConeGeometry(0.012, 0.055, 5),
-      thigh: new THREE.CapsuleGeometry(0.082, 0.38, 5, 10),
-      shin: new THREE.CapsuleGeometry(0.066, 0.38, 5, 10),
-      boot: new THREE.BoxGeometry(0.11, 0.08, 0.2),
-      eyeSocket: new THREE.SphereGeometry(0.032, 8, 8),
-      eye: new THREE.SphereGeometry(0.02, 8, 8),
+      torso: new THREE.CapsuleGeometry(0.19, 0.42, 4, 10),
+      head: new THREE.SphereGeometry(0.14, 14, 12),
+      jaw: new THREE.BoxGeometry(0.1, 0.045, 0.08),
+      crest: new THREE.ConeGeometry(0.05, 0.1, 6),
+      arm: new THREE.CapsuleGeometry(0.055, 0.42, 3, 8),
+      hand: new THREE.SphereGeometry(0.06, 8, 6),
+      leg: new THREE.CapsuleGeometry(0.08, 0.78, 3, 8),
+      eye: new THREE.SphereGeometry(0.022, 6, 6),
+    };
+
+    const zSkinMats: Record<ZombieArchetype, THREE.MeshStandardMaterial> = {
+      stalker: new THREE.MeshStandardMaterial({ map: TX.skin, color: 0x9aa888, roughness: 0.85 }),
+      brute: new THREE.MeshStandardMaterial({ map: TX.skin, color: 0x8e6b62, roughness: 0.85 }),
+      crawler: new THREE.MeshStandardMaterial({ map: TX.skin, color: 0x7e9478, roughness: 0.85 }),
+    };
+    const zShirtMats: Record<ZombieArchetype, THREE.MeshStandardMaterial> = {
+      stalker: new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x4a555e, roughness: 0.95 }),
+      brute: new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x5c3a3a, roughness: 0.95 }),
+      crawler: new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x3f5242, roughness: 0.95 }),
+    };
+    const zPantsMat = new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x2b323d, roughness: 0.95 });
+    const zEyeMats: Record<ZombieArchetype, THREE.MeshBasicMaterial> = {
+      stalker: new THREE.MeshBasicMaterial({ color: 0xffe066 }),
+      brute: new THREE.MeshBasicMaterial({ color: 0xff2a4b }),
+      crawler: new THREE.MeshBasicMaterial({ color: 0xa3e635 }),
     };
 
     interface ZombieActor {
@@ -895,37 +885,10 @@ export default function App() {
       const arch: ZombieArchetype =
         archetype || (['stalker', 'brute', 'crawler'] as const)[Math.floor(Math.random() * 3)];
       const g = new THREE.Group();
-      const hue = arch === 'brute' ? 0.03 : arch === 'crawler' ? 0.27 : 0.16;
-      const skin = new THREE.MeshStandardMaterial({
-        map: TX.skin,
-        color: new THREE.Color().setHSL(hue, 0.28, arch === 'brute' ? 0.48 : 0.62),
-        roughness: 0.72,
-      });
-      const boneM = new THREE.MeshStandardMaterial({
-        color: 0xd8ceb8,
-        roughness: 0.55,
-      });
-      const darkFleshM = new THREE.MeshStandardMaterial({
-        color: 0x3b1216,
-        roughness: 0.65,
-      });
-      const shirt = new THREE.MeshStandardMaterial({
-        map: TX.cloth,
-        color: new THREE.Color().setHSL(rnd(0, 1), 0.25, rnd(0.26, 0.42)),
-        roughness: 0.9,
-      });
-      const pants = new THREE.MeshStandardMaterial({
-        map: TX.cloth,
-        color: new THREE.Color().setHSL(0.6, 0.22, 0.24),
-        roughness: 0.9,
-      });
-      const bootM = new THREE.MeshStandardMaterial({
-        color: 0x1a1817,
-        roughness: 0.6,
-      });
-      const socketM = new THREE.MeshBasicMaterial({ color: 0x050203 });
-      const eyeColor = arch === 'brute' ? 0xff2a4b : arch === 'crawler' ? 0xa3e635 : 0xffe066;
-      const eyeM = new THREE.MeshBasicMaterial({ color: eyeColor });
+      const skin = zSkinMats[arch];
+      const shirt = zShirtMats[arch];
+      const pants = zPantsMat;
+      const eyeM = zEyeMats[arch];
 
       const hips = new THREE.Group();
       hips.position.y = arch === 'crawler' ? 0.62 : 0.95;
@@ -942,38 +905,10 @@ export default function App() {
         return m;
       };
 
-      // Pelvis & Belt
-      const pelvis = mk(ZG.pelvis, pants, 'body');
-      pelvis.position.y = 0.02;
-      hips.add(pelvis);
-
-      // Sculpted Torso + Exposed Ribcage & Spine
       const torso = mk(ZG.torso, shirt, 'body');
       torso.position.y = 0.3;
-      torso.scale.set(arch === 'brute' ? 1.34 : 1.02, 1, arch === 'brute' ? 0.98 : 0.78);
+      torso.scale.set(arch === 'brute' ? 1.28 : 1, 1, arch === 'brute' ? 0.92 : 0.75);
       spine.add(torso);
-
-      const chestCore = mk(ZG.spineBone, darkFleshM, 'body');
-      chestCore.position.set(0, 0.3, 0.03);
-      spine.add(chestCore);
-
-      for (let r = 0; r < 4; r++) {
-        const rib = new THREE.Mesh(ZG.rib, boneM);
-        rib.rotation.x = Math.PI / 2;
-        rib.rotation.z = -Math.PI * 0.18;
-        rib.position.set(0, 0.18 + r * 0.075, 0.02);
-        rib.scale.set(arch === 'brute' ? 1.25 : 0.95, 0.75, 1);
-        spine.add(rib);
-      }
-
-      if (arch === 'brute') {
-        [-1, 1].forEach((s) => {
-          const sp = mk(ZG.shoulderPad, skin, 'body');
-          sp.position.set(s * 0.28, 0.56, 0.02);
-          sp.scale.set(1.2, 0.9, 1.1);
-          spine.add(sp);
-        });
-      }
 
       const neck = new THREE.Group();
       neck.position.y = 0.66;
@@ -981,86 +916,53 @@ export default function App() {
 
       const head = mk(ZG.head, skin, 'head');
       head.position.set(0, 0.12, 0.02);
-      head.scale.set(0.96, 1.12, 1.02);
+      head.scale.set(0.95, 1.1, 1);
       neck.add(head);
 
-      const brow = mk(ZG.brow, skin, 'head');
-      brow.position.set(0, 0.175, 0.125);
-      brow.rotation.x = 0.15;
-      neck.add(brow);
-
-      // Acoustic clicker crests on stalker
       if (arch === 'stalker') {
         [-1, 1].forEach((s) => {
-          const cr = mk(ZG.crest, darkFleshM, 'head');
-          cr.position.set(s * 0.11, 0.21, 0.05);
+          const cr = mk(ZG.crest, shirt, 'head');
+          cr.position.set(s * 0.1, 0.21, 0.04);
           cr.rotation.z = -s * 0.55;
           neck.add(cr);
         });
       }
 
       const jaw = mk(ZG.jaw, skin, 'head');
-      jaw.position.set(0, -0.005, 0.105);
-      jaw.rotation.x = 0.18;
+      jaw.position.set(0, 0.0, 0.1);
       neck.add(jaw);
 
-      // 3D Teeth row
-      for (let t = -2; t <= 2; t++) {
-        const tooth = new THREE.Mesh(ZG.tooth, boneM);
-        tooth.position.set(t * 0.02, 0.032, 0.145);
-        neck.add(tooth);
-      }
-
       const eyes = [-1, 1].map((s) => {
-        const sock = new THREE.Mesh(ZG.eyeSocket, socketM);
-        sock.position.set(s * 0.052, 0.145, 0.122);
-        neck.add(sock);
         const e = new THREE.Mesh(ZG.eye, eyeM);
-        e.position.set(s * 0.052, 0.145, 0.142);
+        e.position.set(s * 0.05, 0.15, 0.125);
         neck.add(e);
         return e;
       });
 
       const armP = [-1, 1].map((s) => {
         const p = new THREE.Group();
-        p.position.set(s * (arch === 'brute' ? 0.33 : 0.26), 0.55, 0);
+        p.position.set(s * (arch === 'brute' ? 0.31 : 0.26), 0.55, 0);
         spine.add(p);
-        const ua = mk(ZG.upperArm, shirt, 'limb');
-        ua.position.y = -0.15;
-        p.add(ua);
-        const fa = mk(ZG.foreArm, skin, 'limb');
-        fa.position.set(0, -0.41, 0.03);
-        fa.rotation.x = -0.18;
-        p.add(fa);
+        const a = mk(ZG.arm, shirt, 'limb');
+        a.position.y = -0.27;
+        p.add(a);
         const h = mk(ZG.hand, skin, 'limb');
-        h.position.set(0, -0.57, 0.05);
+        h.position.y = -0.56;
         p.add(h);
-        for (let c = -1; c <= 1; c++) {
-          const claw = new THREE.Mesh(ZG.claw, boneM);
-          claw.position.set(c * 0.02, -0.63, 0.06);
-          claw.rotation.x = Math.PI + 0.2;
-          p.add(claw);
-        }
         return p;
       });
 
       const legP = [-1, 1].map((s) => {
         const p = new THREE.Group();
-        p.position.set(s * 0.11, 0, 0);
+        p.position.set(s * 0.1, 0, 0);
         hips.add(p);
-        const th = mk(ZG.thigh, pants, 'limb');
-        th.position.y = -0.24;
-        p.add(th);
-        const sh = mk(ZG.shin, skin, 'limb');
-        sh.position.y = -0.64;
-        p.add(sh);
-        const bt = mk(ZG.boot, bootM, 'limb');
-        bt.position.set(0, -0.88, 0.04);
-        p.add(bt);
+        const l = mk(ZG.leg, pants, 'limb');
+        l.position.y = -0.47;
+        p.add(l);
         return p;
       });
 
-      const scaleVal = arch === 'brute' ? 1.16 : arch === 'crawler' ? 0.88 : rnd(0.96, 1.04);
+      const scaleVal = arch === 'brute' ? 1.14 : arch === 'crawler' ? 0.88 : rnd(0.94, 1.04);
       g.scale.setScalar(scaleVal);
       g.position.set(x, 0, zz);
       scene.add(g);
@@ -2064,10 +1966,10 @@ export default function App() {
       P.kick += W.recoil * (S.aim ? 0.6 : 1);
       P.shake = Math.max(P.shake, 0.25);
       vm.kick = 1;
-      mLight.intensity = 3.2;
+      muzzleFlashBoost = 1.8;
       window.setTimeout(() => {
-        mLight.intensity = 0;
-      }, 50);
+        muzzleFlashBoost = 0;
+      }, 55);
       flashSprite();
       if (S.cur === 'shotgun') {
         window.setTimeout(() => {
@@ -2236,50 +2138,49 @@ export default function App() {
         S.lightningT = Math.max(0, S.lightningT - dt);
         flashBoost = Math.sin(S.lightningT * 36) > 0 ? S.lightningT * 3.2 : 0;
       }
-      lightningLight.intensity = flashBoost;
 
-      hemi.intensity = 0.24 + 0.38 * f + (nv ? 0.55 : 0) + flashBoost * 0.25;
-      amb.intensity = 0.1 + 0.12 * f + (nv ? 0.35 : 0);
+      hemi.intensity = 0.22 + 0.38 * f + (nv ? 0.55 : 0) + flashBoost * 0.35;
+      amb.intensity = 0.08 + 0.12 * f + (nv ? 0.35 : 0);
 
       // Position the single active room PointLight in the player's current room
       if (P.z > 5.8) {
-        activeRoomLight.position.set(5.5, 2.55, 8.6);
+        activeRoomLight.position.set(5.5, 2.45, 8.6);
       } else if (P.x < 6.0) {
-        activeRoomLight.position.set(3.0, 2.55, 3.0);
+        activeRoomLight.position.set(3.0, 2.45, 3.0);
       } else {
-        activeRoomLight.position.set(8.5, 2.55, 3.0);
+        activeRoomLight.position.set(8.5, 2.45, 3.0);
       }
 
       const now = performance.now() * 0.003;
-      let flicker = 1 + Math.sin(now) * 0.04;
+      let flicker = 1 + Math.sin(now) * 0.03;
       if (monsterInterference > 0.1) {
         const glitch = Math.sin(now * 19) * Math.cos(now * 31);
-        flicker = glitch > 0.2 ? 0.16 : 1.25;
+        flicker = glitch > 0.2 ? 0.18 : 1.2;
         activeRoomLight.color.setHex(monsterInterference > 0.55 ? 0xffb4a2 : 0xffe9cf);
       } else {
         activeRoomLight.color.setHex(0xffe9cf);
       }
-      activeRoomLight.intensity = (0.28 + 0.72 * f + (nv ? 0.5 : 0)) * flicker;
+      activeRoomLight.intensity =
+        (0.24 + 0.72 * f + (nv ? 0.5 : 0)) * flicker + muzzleFlashBoost + flashBoost * 0.4;
 
       winMats.forEach((m) => {
         const wf = clamp(f + flashBoost * 0.7, 0, 1);
-        m.color.setRGB(lerp(0.11, 0.78, wf), lerp(0.15, 0.86, wf), lerp(0.24, 0.96, wf));
+        m.color.setRGB(lerp(0.1, 0.82, wf), lerp(0.14, 0.9, wf), lerp(0.22, 0.98, wf));
       });
       shafts.forEach((s) => {
         s.visible = cfgRef.current.customShaders;
-        s.material.uniforms.uOpacity.value = 0.06 + 0.18 * f + flashBoost * 0.22;
+        s.material.opacity = 0.04 + 0.18 * f + flashBoost * 0.2;
       });
-      dust.material.opacity = 0.18 + 0.28 * f;
-      radioLed.scale.setScalar(0.85 + Math.sin(now * 3) * 0.25);
+      dust.material.opacity = 0.16 + 0.26 * f;
     };
 
-    // Keyboard & Pointer Input Setup
+    // Keyboard & Multi-Touch / Pointer Input Setup
     const keys: Record<string, boolean> = {};
     const onKeyDown = (e: KeyboardEvent) => {
       keys[e.code] = true;
       if (S.mode === 'title' && (e.code === 'Enter' || e.code === 'Space')) {
         e.preventDefault();
-        engineApiRef.current?.startNewGame(selDiff);
+        engineApiRef.current?.startNewGame(selDiffRef.current);
         return;
       }
       if (e.code === 'Escape' || e.code === 'KeyP') {
@@ -2341,7 +2242,7 @@ export default function App() {
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onWindowBlur);
 
-    // Multi-Touch & Mouse Look/Stick
+    // Unified Multi-Touch (TouchEvent passive:false) & Mouse/Pointer Look + Stick
     let stickId: number | null = null;
     let lookId: number | null = null;
     let stickO = { x: 0, y: 0 };
@@ -2349,40 +2250,39 @@ export default function App() {
 
     const look = (dx: number, dy: number) => {
       const z = camera.fov / cfgRef.current.fov;
-      const s = 0.0042 * cfgRef.current.sens * z;
+      const s = 0.0044 * cfgRef.current.sens * z;
       P.yaw -= dx * s;
       P.pitch = clamp(P.pitch - dy * s, -1.4, 1.4);
     };
 
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target as HTMLElement;
-      if (target && target.closest('button, aside, [role="dialog"], input, a')) return;
+    const isUiInteractiveTarget = (target: EventTarget | null) => {
+      const el = target as HTMLElement | null;
+      return Boolean(el && typeof el.closest === 'function' && el.closest('button, [role="dialog"], input, a'));
+    };
+
+    const beginStickOrLook = (id: number, clientX: number, clientY: number) => {
       sfx.init();
       if (S.mode !== 'playing' || S.paused) return;
-      if (
-        e.clientX < window.innerWidth * 0.44 &&
-        e.clientY > window.innerHeight * 0.45 &&
-        stickId === null
-      ) {
-        stickId = e.pointerId;
-        stickO = { x: e.clientX, y: e.clientY };
+      if (clientX < window.innerWidth * 0.42 && stickId === null) {
+        stickId = id;
+        stickO = { x: clientX, y: clientY };
         if (stickRef.current && knobRef.current) {
           stickRef.current.style.display = 'block';
-          stickRef.current.style.left = `${e.clientX}px`;
-          stickRef.current.style.top = `${e.clientY}px`;
+          stickRef.current.style.left = `${clientX}px`;
+          stickRef.current.style.top = `${clientY}px`;
           knobRef.current.style.transform = 'translate(0,0)';
         }
       } else if (lookId === null) {
-        lookId = e.pointerId;
-        lastLook = { x: e.clientX, y: e.clientY };
+        lookId = id;
+        lastLook = { x: clientX, y: clientY };
       }
     };
 
-    const onPointerMove = (e: PointerEvent) => {
-      if (e.pointerId === stickId) {
+    const moveStickOrLook = (id: number, clientX: number, clientY: number) => {
+      if (id === stickId) {
         const R = window.innerHeight * 0.09;
-        const dx = e.clientX - stickO.x;
-        const dy = e.clientY - stickO.y;
+        const dx = clientX - stickO.x;
+        const dy = clientY - stickO.y;
         const l = Math.hypot(dx, dy);
         const k = l > R ? R / l : 1;
         const mx = dx * k;
@@ -2395,24 +2295,75 @@ export default function App() {
         inp.mz = (-dy / (l || 1)) * (m < 0.12 ? 0 : m);
         inp.mag = m < 0.12 ? 0 : m;
         inp.run = l > R * 1.15;
-      } else if (e.pointerId === lookId) {
-        const dx = e.clientX - lastLook.x;
-        const dy = e.clientY - lastLook.y;
-        lastLook = { x: e.clientX, y: e.clientY };
+      } else if (id === lookId) {
+        const dx = clientX - lastLook.x;
+        const dy = clientY - lastLook.y;
+        lastLook = { x: clientX, y: clientY };
         look(dx, dy);
       }
     };
 
-    const endPtr = (e: PointerEvent) => {
-      if (e.pointerId === stickId) {
+    const endStickOrLook = (id: number) => {
+      if (id === stickId) {
         stickId = null;
         inp.mx = inp.mz = inp.mag = 0;
         inp.run = false;
         if (stickRef.current) stickRef.current.style.display = 'none';
       }
-      if (e.pointerId === lookId) lookId = null;
+      if (id === lookId) {
+        lookId = null;
+      }
     };
 
+    // Native Touch Events with { passive: false } so Android WebView NEVER cancels finger drag
+    const onTouchStart = (e: TouchEvent) => {
+      if (isUiInteractiveTarget(e.target)) return;
+      if (S.mode === 'playing' && !S.paused) {
+        e.preventDefault();
+      }
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        beginStickOrLook(t.identifier, t.clientX, t.clientY);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (S.mode === 'playing' && !S.paused && (stickId !== null || lookId !== null)) {
+        e.preventDefault();
+      }
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        moveStickOrLook(t.identifier, t.clientX, t.clientY);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        endStickOrLook(e.changedTouches[i].identifier);
+      }
+    };
+
+    // Pointer Events for desktop mouse / automated browser tests (skip if touch to avoid double handling)
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      if (isUiInteractiveTarget(e.target)) return;
+      beginStickOrLook(e.pointerId, e.clientX, e.clientY);
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      moveStickOrLook(e.pointerId, e.clientX, e.clientY);
+    };
+
+    const endPtr = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      endStickOrLook(e.pointerId);
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: false });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', onTouchEnd, { passive: false });
     window.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', endPtr);
@@ -2798,21 +2749,23 @@ export default function App() {
       P.run = Boolean(run && moving);
       P.moving = moving;
 
-      // Slats & Under-sofa Overlays
-      if (S.hidden) {
-        const wardrobe = S.hidden.id === 'wardrobe';
-        if (slatsElRef.current)
-          slatsElRef.current.style.opacity = String(wardrobe ? clamp((P.hideT - 0.5) * 3, 0, 1) : 0);
-        if (underElRef.current)
-          underElRef.current.style.opacity = String(wardrobe ? 0 : clamp((P.hideT - 0.4) * 2.5, 0, 1));
-        wrDoors.visible = P.hideT < 0.5;
-      } else {
-        if (slatsElRef.current) slatsElRef.current.style.opacity = String(clamp(P.hideT * 2 - 0.8, 0, 1));
-        if (underElRef.current) underElRef.current.style.opacity = String(clamp(P.hideT * 2 - 0.8, 0, 1));
-        wrDoors.visible = true;
-      }
+      // Slats & Under-sofa Overlays (only write to DOM when changed to avoid compositor thrashing)
+      const nextSlats = S.hidden
+        ? S.hidden.id === 'wardrobe'
+          ? clamp((P.hideT - 0.5) * 3, 0, 1)
+          : 0
+        : clamp(P.hideT * 2 - 0.8, 0, 1);
+      const nextUnder = S.hidden
+        ? S.hidden.id === 'wardrobe'
+          ? 0
+          : clamp((P.hideT - 0.4) * 2.5, 0, 1)
+        : clamp(P.hideT * 2 - 0.8, 0, 1);
+      if (slatsElRef.current) slatsElRef.current.style.opacity = nextSlats > 0.01 ? nextSlats.toFixed(2) : '0';
+      if (underElRef.current) underElRef.current.style.opacity = nextUnder > 0.01 ? nextUnder.toFixed(2) : '0';
+      wrDoors.visible = S.hidden ? P.hideT < 0.5 : true;
       if (vigElRef.current) {
-        vigElRef.current.style.opacity = String(clamp(sick * 0.85 + P.panic * 0.5, 0.15, 0.95));
+        const nextVig = clamp(sick * 0.85 + P.panic * 0.5, 0.15, 0.95);
+        vigElRef.current.style.opacity = nextVig.toFixed(2);
       }
 
       // Flashlight Battery Drain & Flicker
@@ -2826,7 +2779,6 @@ export default function App() {
       if (S.torch && !battStep.torchOn) {
         S.torch = false;
         sfx.torchToggle(false);
-        toast('Фонарик разрядился! Замени батарею [V] в темноте!', 3000);
         syncReactSnapshot();
       }
       S.battery = battStep.battery;
@@ -2836,12 +2788,11 @@ export default function App() {
         if (S.battery < 22) {
           flick *= Math.sin(performance.now() * 0.035) > -0.3 ? 1 : 0.12;
         }
-        torch.intensity = 2.85 * flick;
-        beamMesh.visible = cfgRef.current.customShaders;
-        beamMat.uniforms.uIntensity.value = 0.24 * flick;
+        torch.visible = true;
+        torch.intensity = 2.6 * flick;
       } else {
+        torch.visible = false;
         torch.intensity = 0;
-        beamMesh.visible = false;
       }
 
       // Weapon Reload & Fire
@@ -2993,7 +2944,6 @@ export default function App() {
 
     const stepMenuCamera = (dt: number) => {
       menuT += dt * 0.14;
-      horrorShaderUniforms.uTime.value += dt;
       applyDynamicHorrorLighting(0.28, dt);
       const x = 5.5 + Math.sin(menuT) * 3.1;
       const z = 8.7 + Math.cos(menuT * 0.7) * 1.6;
@@ -3002,20 +2952,30 @@ export default function App() {
       camera.fov = cfgRef.current.fov;
       camera.updateProjectionMatrix();
       vm.g.visible = false;
+      torch.visible = false;
       torch.intensity = 0;
-      beamMesh.visible = false;
-      activeRoomLight.position.set(5.5, 2.55, 8.6);
+      activeRoomLight.position.set(5.5, 2.45, 8.6);
       activeRoomLight.intensity = 0.62 + Math.sin(menuT * 5) * 0.06;
     };
 
     const espVec = new THREE.Vector3();
+    let espWasActive = false;
     const drawESP = () => {
       const espC = espCanvasRef.current;
       if (!espC) return;
+      const active = Boolean(modRef.current.esp && S.mode === 'playing');
+      if (!active) {
+        if (espWasActive) {
+          espWasActive = false;
+          const espG = espC.getContext('2d');
+          espG?.clearRect(0, 0, espC.width, espC.height);
+        }
+        return;
+      }
+      espWasActive = true;
       const espG = espC.getContext('2d');
       if (!espG) return;
       espG.clearRect(0, 0, espC.width, espC.height);
-      if (!modRef.current.esp || S.mode !== 'playing') return;
       espG.strokeStyle = '#F43F5E';
       espG.fillStyle = '#F43F5E';
       espG.lineWidth = 2;
@@ -3457,6 +3417,31 @@ export default function App() {
       }
     };
 
+    (window as unknown as Record<string, unknown>).render_game_to_text = () =>
+      JSON.stringify({
+        mode: S.mode,
+        day: S.day,
+        noise: Math.round(P.noise),
+        battery: Math.round(S.battery),
+        torchOn: S.torch,
+        player: {
+          x: Number(P.x.toFixed(3)),
+          z: Number(P.z.toFixed(3)),
+          yaw: Number(P.yaw.toFixed(3)),
+          pitch: Number(P.pitch.toFixed(3)),
+        },
+        stick: { dx: Number(inp.mx.toFixed(3)), dy: Number(inp.mz.toFixed(3)) },
+      });
+
+    (window as unknown as Record<string, unknown>).advanceTime = (ms: number) => {
+      const steps = Math.max(1, Math.round(ms / 16));
+      for (let i = 0; i < steps; i++) {
+        stepSimulation(0.016);
+      }
+      renderer.clear();
+      renderer.render(scene, camera);
+    };
+
     frameId = requestAnimationFrame(tick);
 
     return () => {
@@ -3466,6 +3451,10 @@ export default function App() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onWindowBlur);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
       window.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', endPtr);
@@ -3473,7 +3462,7 @@ export default function App() {
       stopMic();
       renderer.dispose();
     };
-  }, [refreshSaveSlots, selDiff]);
+  }, [refreshSaveSlots]);
 
   const handleContinueSaved = () => {
     const latest = getLatestCheckpoint();

@@ -432,7 +432,7 @@ export function buildHorrorHouse(
 
   // Windows with Pleated Curtains, Curtain Rods, Muntin Bars & God-Ray Shafts
   const winMats: THREE.MeshBasicMaterial[] = [];
-  const shafts: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>[] = [];
+  const shafts: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
   const curtainMat = M(0x6e3b3b, 0.88, 0.02, { map: TX.fabric, side: THREE.DoubleSide });
   const addWindow = (cx: number, cz: number, fx: number, fz: number) => {
     const g = new THREE.Group();
@@ -464,26 +464,19 @@ export function buildHorrorHouse(
       b.rotation.z = rnd(-0.08, 0.08);
     }
 
-    // Brass curtain rod + sculpted pleated drapes
-    const rod = put(new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 1.85, 10), matBrass), 0, 0.68, 0.07, g);
+    // Brass curtain rod + sculpted drapes
+    const rod = put(new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 1.85, 8), matBrass), 0, 0.68, 0.07, g);
     rod.rotation.z = Math.PI / 2;
     [-1, 1].forEach((s) => {
-      put(new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), matBrass), s * 0.94, 0.68, 0.07, g);
-      for (let p = 0; p < 3; p++) {
-        const pleat = put(
-          rbox(0.12, 1.48, 0.045, 0.015, curtainMat),
-          s * (0.64 + p * 0.1),
-          -0.05,
-          0.065 + (p % 2) * 0.015,
-          g
-        );
-        pleat.rotation.z = s * 0.04;
-      }
+      const c = put(new THREE.Mesh(new THREE.PlaneGeometry(0.35, 1.45), curtainMat), s * 0.72, -0.06, 0.055, g);
+      c.rotation.z = s * 0.05;
     });
 
-    const rayGeo = new THREE.PlaneGeometry(1.15, 3.5);
-    rayGeo.translate(0, -1.75, 0);
-    const sh = new THREE.Mesh(rayGeo, createGodRayMaterial());
+    const rayGeo = new THREE.PlaneGeometry(1.1, 3.4);
+    rayGeo.translate(0, -1.7, 0);
+    const shMat = createGodRayMaterial();
+    shMat.map = TX.shaft;
+    const sh = new THREE.Mesh(rayGeo, shMat);
     sh.rotation.x = -1.0;
     sh.position.set(0, 0.4, 0.1);
     g.add(sh);
@@ -501,14 +494,14 @@ export function buildHorrorHouse(
   scene.add(ground);
 
   const treeM = M(0x161310, 1);
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 18; i++) {
     const x = rnd(-55, 65);
     const z = rnd(18, 85);
     if (Math.abs(x - 5.5) < 4 && z < 40) continue;
     const t = new THREE.Group();
     const h = rnd(4, 9);
     put(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.3, h, 6), treeM), 0, h / 2, 0, t);
-    for (let k = 0; k < 4; k++) {
+    for (let k = 0; k < 3; k++) {
       const b = put(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.09, 2.5, 5), treeM), 0, h * 0.6 + k * 0.6, 0, t);
       b.rotation.z = rnd(-1.2, 1.2);
       b.rotation.y = rnd(0, 6);
@@ -519,7 +512,7 @@ export function buildHorrorHouse(
 
   // Dust Motes in Air
   const dustG = new THREE.BufferGeometry();
-  const dN = 160;
+  const dN = 120;
   const dP = new Float32Array(dN * 3);
   for (let i = 0; i < dN; i++) {
     dP[i * 3] = rnd(0.5, 10.5);
@@ -530,10 +523,10 @@ export function buildHorrorHouse(
   const dust = new THREE.Points(
     dustG,
     new THREE.PointsMaterial({
-      size: 0.026,
-      color: 0xe2e8f0,
+      size: 0.025,
+      color: 0xffffff,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.32,
       depthWrite: false,
     })
   );
@@ -543,7 +536,7 @@ export function buildHorrorHouse(
   // HIGH-DETAIL SCULPTED FURNITURE
   // ============================================================================
 
-  // 1. Living Room Sofa (with wooden legs, brass ferrules, piped cushions & throw pillows)
+  // 1. Living Room Sofa
   const sofa = new THREE.Group();
   sofa.position.set(8.2, 0, 11.5);
   world.add(sofa);
@@ -553,69 +546,47 @@ export function buildHorrorHouse(
     [-1.05, 0.3],
     [1.05, 0.3],
   ].forEach((p) => {
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.024, 0.22, 10), matWoodDark), p[0], 0.11, p[1], sofa);
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.025, 0.04, 10), matBrass), p[0], 0.02, p[1], sofa);
+    put(new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.025, 0.22, 8), matWoodDark), p[0], 0.11, p[1], sofa);
   });
-  put(rbox(2.34, 0.22, 0.88, 0.05, matWoodDark), 0, 0.28, 0, sofa);
-  put(rbox(2.3, 0.18, 0.85, 0.05, matFab), 0, 0.35, 0, sofa);
+  put(rbox(2.3, 0.2, 0.85, 0.05, matFab), 0, 0.32, 0, sofa);
   [-0.76, 0, 0.76].forEach((x) => {
-    put(rbox(0.73, 0.17, 0.7, 0.05, matFab), x, 0.5, 0.06, sofa);
-    const bk = put(rbox(0.72, 0.44, 0.18, 0.05, matFab), x, 0.8, -0.18, sofa);
+    put(rbox(0.74, 0.16, 0.68, 0.05, matFab), x, 0.5, 0.06, sofa);
+    const bk = put(rbox(0.72, 0.42, 0.17, 0.05, matFab), x, 0.8, -0.18, sofa);
     bk.rotation.x = -0.14;
-    // Cushion button tufts
-    [-0.14, 0.14].forEach((tx) => {
-      put(new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 8), matTrim), x + tx, 0.82, -0.09, sofa);
-    });
   });
-  put(rbox(2.32, 0.64, 0.2, 0.06, matFab), 0, 0.73, -0.34, sofa);
+  put(rbox(2.3, 0.6, 0.2, 0.06, matFab), 0, 0.72, -0.34, sofa);
   [-1.17, 1.17].forEach((x) => {
-    put(rbox(0.22, 0.48, 0.88, 0.06, matFab), x, 0.52, 0, sofa);
-    put(rbox(0.24, 0.12, 0.9, 0.05, matTrim), x, 0.74, 0.01, sofa);
+    put(rbox(0.2, 0.46, 0.85, 0.06, matFab), x, 0.5, 0, sofa);
   });
-  const throwPillow = put(rbox(0.46, 0.36, 0.14, 0.05, matFabGreen), 0.72, 0.68, 0.08, sofa);
-  throwPillow.rotation.set(-0.25, -0.35, 0.15);
+  put(rbox(0.5, 0.1, 0.4, 0.04, matFabGreen), 0.6, 0.62, 0.1, sofa).rotation.y = 0.4;
   regHit(sofa);
   addCol(7.0, 11.05, 9.4, 11.95);
 
-  // 2. Sculpted Club Armchair (with warm contrast piping, wooden legs, and cushion detail)
+  // 2. Sculpted Club Armchair
   const arm = new THREE.Group();
   arm.position.set(2.4, 0, 11.3);
   world.add(arm);
-  [
-    [-0.38, -0.35],
-    [0.38, -0.35],
-    [-0.38, 0.35],
-    [0.38, 0.35],
-  ].forEach((p) => {
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.022, 0.2, 10), matWoodDark), p[0], 0.1, p[1], arm);
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.023, 0.035, 10), matBrass), p[0], 0.02, p[1], arm);
-  });
-  put(rbox(0.96, 0.14, 0.92, 0.04, matWoodDark), 0, 0.22, 0, arm);
-  put(rbox(0.92, 0.24, 0.88, 0.06, matFabGreen), 0, 0.34, 0, arm);
-  put(rbox(0.68, 0.16, 0.68, 0.05, matFab), 0, 0.5, 0.05, arm);
-  const armBack = put(rbox(0.88, 0.62, 0.22, 0.06, matFabGreen), 0, 0.76, -0.32, arm);
-  armBack.rotation.x = -0.1;
-  put(rbox(0.62, 0.42, 0.12, 0.04, matFab), 0, 0.76, -0.2, arm).rotation.x = -0.1;
-  [-0.44, 0.44].forEach((x) => {
-    put(rbox(0.18, 0.44, 0.86, 0.06, matFabGreen), x, 0.5, 0, arm);
-    put(rbox(0.2, 0.1, 0.88, 0.04, matTrim), x, 0.7, 0.02, arm);
+  put(rbox(0.9, 0.3, 0.9, 0.06, matFabGreen), 0, 0.28, 0, arm);
+  put(rbox(0.7, 0.14, 0.65, 0.05, matFabGreen), 0, 0.48, 0.05, arm);
+  put(rbox(0.9, 0.6, 0.2, 0.06, matFabGreen), 0, 0.7, -0.34, arm);
+  [-0.45, 0.45].forEach((x) => {
+    put(rbox(0.15, 0.42, 0.8, 0.05, matFabGreen), x, 0.46, 0, arm);
   });
   regHit(arm);
   addCol(1.95, 10.85, 2.85, 11.75);
 
-  // 3. Coffee Table with Lower Shelf
+  // 3. Coffee Table
   const ct = new THREE.Group();
   ct.position.set(8.0, 0, 9.4);
   world.add(ct);
-  put(rbox(1.34, 0.06, 0.68, 0.02, matWood), 0, 0.42, 0, ct);
-  put(rbox(1.18, 0.035, 0.54, 0.01, matWoodDark), 0, 0.16, 0, ct);
+  put(rbox(1.3, 0.06, 0.65, 0.02, matWood), 0, 0.42, 0, ct);
   [
-    [-0.56, -0.26],
-    [0.56, -0.26],
-    [-0.56, 0.26],
-    [0.56, 0.26],
+    [-0.55, -0.25],
+    [0.55, -0.25],
+    [-0.55, 0.25],
+    [0.55, 0.25],
   ].forEach((p) =>
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.024, 0.4, 10), matWoodDark), p[0], 0.2, p[1], ct)
+    put(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.025, 0.4, 8), matWood), p[0], 0.2, p[1], ct)
   );
   regHit(ct);
   addCol(7.35, 9.07, 8.65, 9.73);
@@ -635,109 +606,89 @@ export function buildHorrorHouse(
   world.add(bedroomRug);
   surfaceMeshes.push(bedroomRug);
 
-  // 4. TV Unit, Retro CRT Television & VCR Deck
+  // 4. TV Unit & Television
   const tv = new THREE.Group();
   tv.position.set(0.35, 0, 9.2);
   world.add(tv);
-  put(rbox(0.52, 0.52, 1.82, 0.025, matWood), 0, 0.26, 0, tv);
-  [-0.55, 0.55].forEach((z) => {
-    put(rbox(0.03, 0.42, 0.52, 0.01, matWoodDark), 0.26, 0.26, z, tv);
-    put(new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), matBrass), 0.28, 0.26, z + (z < 0 ? 0.18 : -0.18), tv);
-  });
-  // VCR Player inside shelf
-  put(rbox(0.32, 0.08, 0.44, 0.01, matDark), 0.06, 0.56, 0, tv);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.02, 0.08), new THREE.MeshBasicMaterial({ color: 0x34d399 })), 0.225, 0.56, 0.1, tv);
-  // CRT Television Set
-  put(rbox(0.38, 0.58, 0.86, 0.03, matDark), 0.02, 0.88, 0, tv);
-  const tvScreen = new THREE.MeshStandardMaterial({ color: 0x16202a, roughness: 0.15, metalness: 0.35 });
-  put(rbox(0.04, 0.46, 0.64, 0.02, tvScreen), 0.2, 0.89, -0.06, tv);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), new THREE.MeshBasicMaterial({ color: 0xf43f5e })), 0.21, 0.68, 0.32, tv);
-  // Rabbit-ear dipole antennas
-  const ant1 = put(new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.45, 6), matMetal), 0.05, 1.32, -0.1, tv);
-  ant1.rotation.x = -0.35;
-  const ant2 = put(new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.45, 6), matMetal), 0.05, 1.32, 0.1, tv);
-  ant2.rotation.x = 0.35;
+  put(rbox(0.5, 0.5, 1.8, 0.025, matWood), 0, 0.25, 0, tv);
+  put(rbox(0.07, 0.55, 0.98, 0.02, matDark), 0.05, 0.8, 0, tv);
+  const crack = put(
+    new THREE.Mesh(new THREE.PlaneGeometry(0.01, 0.9), new THREE.MeshBasicMaterial({ color: 0x445566 })),
+    0.09,
+    0.8,
+    0,
+    tv
+  );
+  crack.rotation.y = Math.PI / 2;
+  crack.rotation.x = 0.4;
   regHit(tv);
   addCol(0.1, 8.3, 0.6, 10.1);
 
-  // 5. Bookshelf
+  // 5. Bookshelf (shared book materials for low draw-call state changes)
   const bs = new THREE.Group();
   bs.position.set(10.72, 0, 7.4);
   world.add(bs);
-  put(rbox(0.42, 1.94, 1.62, 0.02, matWood), 0, 0.97, 0, bs);
+  put(rbox(0.4, 1.9, 1.6, 0.02, matWood), 0, 0.95, 0, bs);
+  const bookMats = [
+    M(0x7a2e2e, 0.88),
+    M(0x2e5a44, 0.88),
+    M(0x3a4a6e, 0.88),
+    M(0x6e542e, 0.88),
+  ];
   for (let s = 0; s < 5; s++) {
-    put(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.03, 1.54), matWoodDark), -0.02, 0.18 + s * 0.36, 0, bs);
     let z = -0.7;
+    let bi = s;
     while (z < 0.65) {
-      const w = rnd(0.04, 0.09);
+      const w = rnd(0.06, 0.12);
       const h = rnd(0.18, 0.3);
       const b = put(
-        new THREE.Mesh(
-          new THREE.BoxGeometry(0.24, h, w),
-          M(new THREE.Color().setHSL(rnd(0, 1), 0.42, 0.32), 0.8)
-        ),
+        new THREE.Mesh(new THREE.BoxGeometry(0.24, h, w), bookMats[bi++ % bookMats.length]),
         -0.12,
         0.2 + s * 0.36 + h / 2,
         z + w / 2,
         bs
       );
       b.rotation.z = Math.random() < 0.15 ? rnd(-0.28, 0.28) : 0;
-      z += w + 0.005;
+      z += w + 0.01;
     }
   }
   regHit(bs);
   addCol(10.5, 6.6, 10.95, 8.2);
 
-  // 6. Kitchen Counter, Sink with Gooseneck Faucet, Stove, Fridge, Pantry & Table
+  // 6. Kitchen Counter, Sink, Fridge, Pantry & Table
   const kc = new THREE.Group();
   kc.position.set(8.15, 0, 0.42);
   world.add(kc);
-  put(rbox(3.9, 0.88, 0.65, 0.02, M(0xb8b2a2, 0.78)), 0, 0.44, 0, kc);
-  put(rbox(3.96, 0.055, 0.72, 0.015, M(0x282a2e, 0.42, 0.25)), 0, 0.9, 0, kc);
+  const matCounter = M(0xb3ad9d, 0.8);
+  const matCabDoor = M(0x8f897a, 0.85);
+  put(rbox(3.9, 0.88, 0.65, 0.02, matCounter), 0, 0.44, 0, kc);
+  put(rbox(3.95, 0.05, 0.7, 0.01, M(0x30302f, 0.5, 0.2)), 0, 0.9, 0, kc);
   for (let i = 0; i < 5; i++) {
-    put(rbox(0.7, 0.7, 0.025, 0.01, M(0x948e7e, 0.82)), -1.5 + i * 0.75, 0.45, 0.33, kc);
-    put(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.03), matBrass), -1.5 + i * 0.75, 0.72, 0.35, kc);
+    put(rbox(0.7, 0.7, 0.02, 0.01, matCabDoor), -1.5 + i * 0.75, 0.45, 0.33, kc);
   }
-  // Stainless steel sink & curved faucet
-  put(rbox(0.74, 0.035, 0.48, 0.01, matMetal), 0.9, 0.925, 0, kc);
-  put(new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.018, 0.24, 10), matMetal), 0.9, 1.04, -0.18, kc);
-  put(new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.014, 8, 14, Math.PI), matMetal), 0.9, 1.15, -0.11, kc).rotation.y = Math.PI / 2;
-  // 4-burner stove top
-  put(rbox(0.78, 0.03, 0.52, 0.01, matDark), -0.8, 0.925, 0, kc);
-  [
-    [-0.98, -0.12],
-    [-0.62, -0.12],
-    [-0.98, 0.12],
-    [-0.62, 0.12],
-  ].forEach(([bx, bz]) => {
-    const burner = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.012, 8, 16), matMetal);
-    burner.rotation.x = Math.PI / 2;
-    put(burner, bx, 0.945, bz, kc);
-  });
+  put(rbox(0.7, 0.03, 0.45, 0.01, matMetal), 0.9, 0.92, 0, kc);
+  put(cyl(0.015, 0.015, 0.3, matMetal, 8), 0.9, 1.07, -0.15, kc).rotation.set(0, 0, 0);
   for (let i = 0; i < 4; i++) {
-    put(rbox(0.82, 0.62, 0.36, 0.02, M(0x9e9884, 0.82)), -1.45 + i * 0.95, 1.85, -0.15, kc);
-    put(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.03), matBrass), -1.45 + i * 0.95, 1.62, 0.04, kc);
+    put(rbox(0.8, 0.6, 0.35, 0.02, matCabDoor), -1.45 + i * 0.95, 1.85, -0.15, kc);
   }
   regHit(kc);
   addCol(6.2, 0.1, 10.1, 0.75);
 
-  // Two-door Refrigerator
   const fr = new THREE.Group();
   fr.position.set(10.55, 0, 1.15);
   world.add(fr);
-  put(rbox(0.72, 1.94, 0.72, 0.04, M(0xd2d4d0, 0.38, 0.25)), 0, 0.97, 0, fr);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.018, 0.74), matDark), 0, 1.35, 0, fr);
-  put(rbox(0.035, 0.42, 0.045, 0.008, matMetal), -0.37, 1.62, 0.24, fr);
-  put(rbox(0.035, 0.65, 0.045, 0.008, matMetal), -0.37, 0.92, 0.24, fr);
+  put(rbox(0.7, 1.9, 0.7, 0.04, M(0xc9c9c4, 0.5, 0.1)), 0, 0.95, 0, fr);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.04), matMetal), -0.36, 1.25, 0.22, fr);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.02, 0.69), matDark), -0.36, 1.2, 0, fr);
   regHit(fr);
   addCol(10.2, 0.8, 10.9, 1.5);
 
   const pan = new THREE.Group();
   pan.position.set(10.72, 0, 4.7);
   world.add(pan);
-  put(rbox(0.42, 2.02, 1.42, 0.02, matWood), 0, 1.01, 0, pan);
+  put(rbox(0.4, 2.0, 1.4, 0.02, matWood), 0, 1.0, 0, pan);
   for (let s = 0; s < 4; s++) {
-    put(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.035, 1.32), matWoodDark), -0.01, 0.35 + s * 0.45, 0, pan);
+    put(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.03, 1.3), matWoodDark), -0.01, 0.35 + s * 0.45, 0, pan);
   }
   regHit(pan);
   addCol(10.5, 4.0, 10.95, 5.4);
@@ -745,57 +696,48 @@ export function buildHorrorHouse(
   const kt = new THREE.Group();
   kt.position.set(9.2, 0, 3.6);
   world.add(kt);
-  put(rbox(1.34, 0.065, 0.88, 0.02, matWood), 0, 0.75, 0, kt);
+  put(rbox(1.3, 0.06, 0.85, 0.02, matWood), 0, 0.75, 0, kt);
   [
     [-0.55, -0.35],
     [0.55, -0.35],
     [-0.55, 0.35],
     [0.55, 0.35],
   ].forEach((p) =>
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.028, 0.74, 10), matWoodDark), p[0], 0.37, p[1], kt)
+    put(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.74, 8), matWood), p[0], 0.37, p[1], kt)
   );
   regHit(kt);
   addCol(8.55, 3.17, 9.85, 4.03);
 
-  // 7. Bedroom Bed, Nightstand with Lamp, Dresser & Military Transceiver Radio
+  // 7. Bedroom Bed, Nightstand, Dresser & Radio
   const bed = new THREE.Group();
   bed.position.set(4.5, 0, 1.15);
   world.add(bed);
-  put(rbox(2.24, 0.32, 2.02, 0.04, matWood), 0, 0.25, 0, bed);
-  put(rbox(2.12, 0.22, 1.92, 0.06, M(0x9ca3af, 0.9)), 0, 0.48, 0, bed);
-  put(rbox(2.32, 0.96, 0.09, 0.03, matWoodDark), 0, 0.72, -0.98, bed);
-  [-1.12, 1.12].forEach((px) => {
-    put(new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10), matBrass), px, 1.24, -0.98, bed);
-  });
-  [-0.52, 0.52].forEach((x) => put(rbox(0.74, 0.15, 0.42, 0.06, M(0xd6d1c4, 0.9)), x, 0.64, -0.68, bed));
-  put(rbox(2.14, 0.12, 1.26, 0.05, matFabGreen), 0, 0.62, 0.36, bed);
+  put(rbox(2.2, 0.3, 2.0, 0.04, matWood), 0, 0.25, 0, bed);
+  put(rbox(2.1, 0.2, 1.9, 0.06, M(0x8a8f96, 0.95)), 0, 0.47, 0, bed);
+  put(rbox(2.3, 0.9, 0.08, 0.03, matWood), 0, 0.7, -0.98, bed);
+  const matPillow = M(0xb8b2a4, 0.95);
+  [-0.5, 0.5].forEach((x) => put(rbox(0.7, 0.14, 0.4, 0.05, matPillow), x, 0.62, -0.7, bed));
+  put(rbox(2.1, 0.1, 1.2, 0.05, matFabGreen), 0, 0.62, 0.4, bed);
   regHit(bed);
   addCol(3.3, 0.1, 5.7, 2.2);
 
   const ns = new THREE.Group();
   ns.position.set(2.95, 0, 0.35);
   world.add(ns);
-  put(rbox(0.52, 0.56, 0.46, 0.02, matWood), 0, 0.28, 0, ns);
-  put(rbox(0.44, 0.18, 0.025, 0.008, matWoodDark), 0, 0.4, 0.23, ns);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), matBrass), 0, 0.4, 0.25, ns);
+  put(rbox(0.5, 0.55, 0.45, 0.02, matWood), 0, 0.28, 0, ns);
+  put(rbox(0.46, 0.18, 0.02, 0.01, matWoodDark), 0, 0.4, 0.23, ns);
   regHit(ns);
   addCol(2.7, 0.1, 3.2, 0.6);
 
-  // Checkpoint Survivor Radio & Journal Desk on Dresser
   const dr = new THREE.Group();
   dr.position.set(5.5, 0, 4.4);
   world.add(dr);
-  put(rbox(0.76, 0.92, 1.62, 0.03, matWood), 0, 0.46, 0, dr);
+  put(rbox(0.75, 0.9, 1.6, 0.03, matWood), 0, 0.45, 0, dr);
   for (let i = 0; i < 3; i++) {
-    put(rbox(0.025, 0.24, 1.44, 0.01, matWoodDark), -0.38, 0.2 + i * 0.28, 0, dr);
-    put(rbox(0.035, 0.03, 0.22, 0.006, matBrass), -0.4, 0.2 + i * 0.28, 0, dr);
+    put(rbox(0.02, 0.24, 1.4, 0.01, matWoodDark), -0.38, 0.2 + i * 0.28, 0, dr);
+    put(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.2), matMetal), -0.4, 0.2 + i * 0.28, 0, dr);
   }
-  // Detailed Military Transceiver Radio + Whip Antenna + Survivor Journal
-  put(rbox(0.24, 0.16, 0.36, 0.02, M(0x283038, 0.42, 0.68)), 0, 0.99, -0.35, dr);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.05, 0.18), new THREE.MeshBasicMaterial({ color: 0xfde68a })), -0.125, 1.01, -0.38, dr);
-  put(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 10), matBrass), -0.13, 0.96, -0.25, dr).rotation.z = Math.PI / 2;
-  const antWhip = put(new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.008, 0.55, 8), matMetal), 0.06, 1.32, -0.48, dr);
-  antWhip.rotation.z = 0.15;
+  put(rbox(0.24, 0.16, 0.36, 0.02, matDark), 0, 0.99, -0.35, dr);
   const radioLed = put(
     new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 8), new THREE.MeshBasicMaterial({ color: 0x10b981 })),
     -0.125,
@@ -803,31 +745,28 @@ export function buildHorrorHouse(
     -0.24,
     dr
   );
-  // Leather Survivor Journal with bookmark ribbon
-  put(rbox(0.26, 0.038, 0.32, 0.008, M(0x7c2d12, 0.8)), -0.1, 0.93, 0.35, dr);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.028, 0.3), M(0xfef3c7, 0.9)), -0.09, 0.93, 0.35, dr);
+  put(rbox(0.26, 0.038, 0.32, 0.008, bookMats[0]), -0.1, 0.93, 0.35, dr);
   regHit(dr);
   addCol(5.1, 3.6, 5.85, 5.2);
 
-  // 8. Detailed Bedroom Wardrobe
+  // 8. Bedroom Wardrobe
   const wr = new THREE.Group();
   wr.position.set(0.55, 0, 1.6);
   world.add(wr);
   const wrBody = new THREE.Group();
   wr.add(wrBody);
   put(rbox(0.04, 2.1, 1.6, 0.01, matWood), -0.4, 1.05, 0, wrBody);
-  put(rbox(0.94, 0.06, 1.64, 0.015, matWoodDark), 0, 2.09, 0, wrBody);
+  put(rbox(0.9, 0.04, 1.6, 0.01, matWood), 0, 2.08, 0, wrBody);
   put(rbox(0.9, 0.04, 1.6, 0.01, matWood), 0, 0.04, 0, wrBody);
   put(rbox(0.9, 2.1, 0.04, 0.01, matWood), 0, 1.05, -0.78, wrBody);
   put(rbox(0.9, 2.1, 0.04, 0.01, matWood), 0, 1.05, 0.78, wrBody);
-  // Interior hanger rod & hanging coats
-  put(cyl(0.012, 0.012, 1.5, matMetal, 10), 0, 1.82, 0, wrBody);
-  for (let i = 0; i < 5; i++) {
+  put(cyl(0.012, 0.012, 1.5, matMetal, 8), 0, 1.8, 0, wrBody).rotation.set(0, 0, Math.PI / 2);
+  for (let i = 0; i < 4; i++) {
     const coat = put(
-      rbox(0.05, 0.72, 0.22, 0.04, M(new THREE.Color().setHSL(rnd(0, 1), 0.22, 0.28), 0.9)),
+      rbox(0.04, 0.7, 0.2, 0.04, bookMats[i % bookMats.length]),
       0,
-      1.42,
-      -0.6 + i * 0.3,
+      1.4,
+      -0.55 + i * 0.35,
       wrBody
     );
     coat.rotation.z = rnd(-0.06, 0.06);
@@ -836,42 +775,30 @@ export function buildHorrorHouse(
   wr.add(wrDoors);
   [-1, 1].forEach((s) => {
     put(rbox(0.04, 2.04, 0.78, 0.01, matWood), 0.44, 1.05, s * 0.4, wrDoors);
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 12; i++) {
       const sl = put(
         new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.66), matWoodDark),
         0.47,
-        0.3 + i * 0.12,
+        0.3 + i * 0.14,
         s * 0.4,
         wrDoors
       );
       sl.rotation.z = 0.5;
     }
-    put(rbox(0.035, 0.16, 0.03, 0.006, matBrass), 0.5, 1.05, s * 0.06, wrDoors);
+    put(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.025), matMetal), 0.5, 1.05, s * 0.06, wrDoors);
   });
   regHit(wr);
   addCol(0.1, 0.8, 1.0, 2.4);
 
   // Loot & Crafting Material Props
-  const canM = [M(0xb5472b, 0.38, 0.62), M(0x4b8f3a, 0.38, 0.62), M(0xc0a030, 0.38, 0.62)];
-  const mkCan = (i: number) => {
-    const cg = new THREE.Group();
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.11, 14), canM[i % 3]), 0, 0, 0, cg);
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.043, 0.043, 0.01, 14), matMetal), 0, 0.052, 0, cg);
-    return cg;
-  };
+  const canM = [M(0xb5472b, 0.5, 0.5), M(0x4b8f3a, 0.5, 0.5), M(0xc0a030, 0.5, 0.5)];
+  const mkCan = (i: number) => new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.11, 12), canM[i % 3]);
+  const matBottleGlass = M(0x9cc8e8, 0.2, 0, { transparent: true, opacity: 0.7 });
+  const matBottleCap = M(0x2a6fb0, 0.4);
   const mkBottle = () => {
     const g = new THREE.Group();
-    put(
-      new THREE.Mesh(
-        new THREE.CylinderGeometry(0.036, 0.036, 0.2, 12),
-        M(0x9cc8e8, 0.18, 0.1, { transparent: true, opacity: 0.78 })
-      ),
-      0,
-      0.1,
-      0,
-      g
-    );
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.018, 0.05, 10), M(0x2a6fb0, 0.4)), 0, 0.225, 0, g);
+    put(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.2, 10), matBottleGlass), 0, 0.1, 0, g);
+    put(new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.018, 0.05, 8), matBottleCap), 0, 0.225, 0, g);
     return g;
   };
 
@@ -901,14 +828,12 @@ export function buildHorrorHouse(
       put(mkBottle(), 0, 0, 0.1, g);
     }),
     shelf: propGroup(0.8, 10.62, 7.1, (g) => {
-      put(rbox(0.12, 0.08, 0.2, 0.01, M(0x5a6a3a, 0.65)), 0, 0.04, 0, g);
-      put(rbox(0.12, 0.08, 0.2, 0.01, M(0x8a5a2a, 0.65)), 0, 0.04, 0.3, g);
+      put(rbox(0.12, 0.08, 0.2, 0.01, bookMats[1]), 0, 0.04, 0, g);
+      put(rbox(0.12, 0.08, 0.2, 0.01, bookMats[3]), 0, 0.04, 0.3, g);
     }),
     toolbox: propGroup(0.45, 8.0, 9.4, (g) => {
-      put(rbox(0.34, 0.16, 0.19, 0.02, M(0xb91c1c, 0.38, 0.65)), 0, 0.08, 0, g);
+      put(rbox(0.34, 0.16, 0.19, 0.02, M(0xb91c1c, 0.4, 0.6)), 0, 0.08, 0, g);
       put(rbox(0.18, 0.03, 0.03, 0.005, matMetal), 0, 0.18, 0, g);
-      put(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.2), matBrass), -0.09, 0.1, 0, g);
-      put(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.2), matBrass), 0.09, 0.1, 0, g);
     }),
   };
 
@@ -923,10 +848,8 @@ export function buildHorrorHouse(
   const caseG = new THREE.Group();
   caseG.position.set(1.45, 0.06, 6.5);
   world.add(caseG);
-  put(rbox(1.34, 0.13, 0.38, 0.03, M(0x22252a, 0.5, 0.45)), 0, 0, 0, caseG);
-  [-0.4, 0.4].forEach((cx) => {
-    put(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.4), matBrass), cx, 0.05, 0, caseG);
-  });
+  put(rbox(1.3, 0.12, 0.35, 0.03, M(0x22252a, 0.6, 0.3)), 0, 0, 0, caseG);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 0.04), matMetal), 0, 0.07, 0, caseG);
   put(gunProp.sniper, 0, 0.11, 0, caseG);
   gunProp.sniper.scale.set(0.9, 0.9, 0.9);
   gunProp.sniper.rotation.y = Math.PI / 2;
@@ -940,30 +863,6 @@ export function buildHorrorHouse(
     lastCellMat = detectSurfaceMaterialAt(x, z);
     return lastCellMat;
   };
-
-  // Freeze matrices on static architecture & furniture to eliminate CPU matrix recomputation per frame
-  const dynamicRoots = new Set<THREE.Object3D>([
-    doorPivot,
-    wrDoors,
-    dust,
-    radioLed,
-    gunProp.deagle,
-    caseG,
-    ...Object.values(loot),
-    ...shafts,
-  ]);
-  world.updateMatrixWorld(true);
-  world.traverse((obj) => {
-    let cur: THREE.Object3D | null = obj;
-    while (cur && cur !== world) {
-      if (dynamicRoots.has(cur)) return;
-      cur = cur.parent;
-    }
-    if (obj !== world) {
-      obj.matrixAutoUpdate = false;
-      obj.updateMatrix();
-    }
-  });
 
   return {
     TX,
