@@ -1,0 +1,6 @@
+{
+  "name": "Тишина: 7 дней — Ultra Horror Edition",
+  "description": "Атмосферный 3D сурвайвал-хоррор от первого лица с динамическим освещением, кастомными шейдерами, постоянной шкалой шума слева, ограниченным фонариком, инвентарём, крафтом ловушек, скримерами, сохранениями в ключевых точках и поддержкой 120 FPS.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
