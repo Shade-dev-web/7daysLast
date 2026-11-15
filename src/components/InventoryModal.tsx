@@ -63,38 +63,38 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       aria-modal="true"
       aria-label="Инвентарь и мастерская крафта"
       data-testid="inventory-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-2 sm:p-4 select-none"
     >
-      <div className="w-full max-w-4xl max-h-[88vh] rounded-2xl bg-[#111318] border border-white/15 shadow-[0_24px_64px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden">
+      <div className="w-full max-w-4xl max-h-[94vh] rounded-2xl bg-[#111318] border border-white/15 shadow-[0_24px_64px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden">
         {/* Top Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-[#0B0D11]">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold tracking-tight text-white font-['Unbounded']">
-              СУМКА ВЫЖИВШЕГО И КРАФТ
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-3 border-b border-white/10 bg-[#0B0D11]">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h2 className="text-sm sm:text-lg font-bold tracking-tight text-white font-['Unbounded']">
+              СУМКА И КРАФТ
             </h2>
-            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/10">
+            <div className="flex items-center gap-1 bg-white/5 p-0.5 sm:p-1 rounded-lg border border-white/10">
               <button
                 type="button"
                 onClick={() => setTab('bag')}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold transition-colors cursor-pointer ${
                   tab === 'bag'
                     ? 'bg-amber-500 text-black'
                     : 'text-[#9499A3] hover:text-white'
                 }`}
               >
-                Инвентарь и Ресурсы
+                Инвентарь
               </button>
               <button
                 type="button"
                 onClick={() => setTab('craft')}
                 data-testid="tab-craft-btn"
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold transition-colors cursor-pointer ${
                   tab === 'craft'
                     ? 'bg-amber-500 text-black'
                     : 'text-[#9499A3] hover:text-white'
                 }`}
               >
-                Мастерская Крафта ({CRAFT_RECIPES.length})
+                Крафт ({CRAFT_RECIPES.length})
               </button>
             </div>
           </div>
@@ -103,18 +103,18 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Закрыть инвентарь"
-            className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs font-bold text-white cursor-pointer"
+            className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs font-bold text-white cursor-pointer"
           >
-            Закрыть [Esc / I]
+            Закрыть [Esc]
           </button>
         </div>
 
         {/* Materials Strip (Always visible at top of modal) */}
-        <div className="px-5 py-2.5 bg-[#0D1016] border-b border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="text-[#9499A3] font-semibold">Детали для крафта:</span>
-          <div className="flex flex-wrap items-center gap-4 font-mono tabular-nums">
+        <div className="px-3 py-1.5 sm:px-5 sm:py-2 bg-[#0D1016] border-b border-white/10 flex flex-wrap items-center justify-between gap-1.5 text-[11px] sm:text-xs">
+          <span className="text-[#9499A3] font-semibold">Детали:</span>
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 font-mono tabular-nums">
             <span>
-              Металлолом: <strong className="text-amber-400">{inv.scrap}</strong>
+              Лом: <strong className="text-amber-400">{inv.scrap}</strong>
             </span>
             <span>·</span>
             <span>
@@ -136,7 +136,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y p-3 sm:p-5 space-y-4">
           {tab === 'bag' ? (
             <>
               {/* Section 1: Consumables */}

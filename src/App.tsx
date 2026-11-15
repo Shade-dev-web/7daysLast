@@ -42,7 +42,6 @@ import {
   GameSettings,
   ModMenuState,
 } from './components/PauseSettingsModal';
-import { ApkExportModal } from './components/ApkExportModal';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -171,7 +170,6 @@ export default function App() {
   const [screenMode, setScreenMode] = useState<'title' | 'playing' | 'paused' | 'gameover'>('title');
   const [selDiff, setSelDiff] = useState<DifficultyKey>('normal');
   const [invOpen, setInvOpen] = useState(false);
-  const [apkModalOpen, setApkModalOpen] = useState(false);
   const [pauseTab, setPauseTab] = useState(0);
   const [isPauseFromMenu, setIsPauseFromMenu] = useState(false);
   const [dayBanner, setDayBanner] = useState<{ visible: boolean; day: number; sub: string }>({
@@ -419,10 +417,10 @@ export default function App() {
       detectSurface,
     } = house;
 
-    // Dynamic Horror Lights
-    const hemi = new THREE.HemisphereLight(0xbfd0e0, 0x2c241b, 0.22);
+    // Dynamic Horror Lights (tuned for crisp 3D model readability + deep shadows)
+    const hemi = new THREE.HemisphereLight(0xc8daf0, 0x382d22, 0.34);
     scene.add(hemi);
-    const amb = new THREE.AmbientLight(0x8a96a8, 0.08);
+    const amb = new THREE.AmbientLight(0x9aa8bd, 0.14);
     scene.add(amb);
 
     const roomLights = (
@@ -432,14 +430,14 @@ export default function App() {
         [8.5, 2.55, 3.0],
       ] as [number, number, number][]
     ).map((p) => {
-      const l = new THREE.PointLight(0xdfe8ff, 0.5, 13.5, 1.65);
+      const l = new THREE.PointLight(0xffe9cf, 0.65, 14.5, 1.55);
       l.position.set(...p);
       scene.add(l);
       return l;
     });
 
     // Flashlight SpotLight + Volumetric Shader Cone
-    const torch = new THREE.SpotLight(0xfff0d0, 0, 18.5, 0.56, 0.52, 1.15);
+    const torch = new THREE.SpotLight(0xfff3d6, 0, 21, 0.6, 0.48, 1.1);
     torch.position.set(0.12, -0.08, 0);
     if (!isSoftwareGl) {
       torch.castShadow = true;
@@ -847,15 +845,27 @@ export default function App() {
       return path;
     };
 
-    // Zombies (3 Distinct Archetypes: stalker, brute, crawler)
+    // Zombies (3 High-Detail 3D Archetypes: stalker, brute, crawler)
     const ZG = {
-      torso: new THREE.CapsuleGeometry(0.19, 0.42, 4, 10),
-      head: new THREE.SphereGeometry(0.14, 14, 12),
-      arm: new THREE.CapsuleGeometry(0.055, 0.42, 3, 8),
-      leg: new THREE.CapsuleGeometry(0.08, 0.78, 3, 8),
-      hand: new THREE.SphereGeometry(0.06, 8, 6),
-      eye: new THREE.SphereGeometry(0.022, 6, 6),
-      jaw: new THREE.BoxGeometry(0.1, 0.045, 0.08),
+      torso: new THREE.CapsuleGeometry(0.185, 0.4, 6, 14),
+      pelvis: new THREE.BoxGeometry(0.32, 0.14, 0.2),
+      rib: new THREE.TorusGeometry(0.155, 0.018, 6, 14, Math.PI * 1.35),
+      spineBone: new THREE.CylinderGeometry(0.025, 0.025, 0.46, 8),
+      shoulderPad: new THREE.SphereGeometry(0.11, 10, 8),
+      head: new THREE.SphereGeometry(0.14, 16, 14),
+      brow: new THREE.BoxGeometry(0.19, 0.038, 0.09),
+      jaw: new THREE.BoxGeometry(0.115, 0.055, 0.1),
+      tooth: new THREE.BoxGeometry(0.014, 0.022, 0.014),
+      crest: new THREE.ConeGeometry(0.055, 0.11, 7),
+      upperArm: new THREE.CapsuleGeometry(0.055, 0.24, 5, 10),
+      foreArm: new THREE.CapsuleGeometry(0.046, 0.24, 5, 10),
+      hand: new THREE.BoxGeometry(0.07, 0.08, 0.04),
+      claw: new THREE.ConeGeometry(0.012, 0.055, 5),
+      thigh: new THREE.CapsuleGeometry(0.082, 0.38, 5, 10),
+      shin: new THREE.CapsuleGeometry(0.066, 0.38, 5, 10),
+      boot: new THREE.BoxGeometry(0.11, 0.08, 0.2),
+      eyeSocket: new THREE.SphereGeometry(0.032, 8, 8),
+      eye: new THREE.SphereGeometry(0.02, 8, 8),
     };
 
     interface ZombieActor {
@@ -905,23 +915,36 @@ export default function App() {
       const arch: ZombieArchetype =
         archetype || (['stalker', 'brute', 'crawler'] as const)[Math.floor(Math.random() * 3)];
       const g = new THREE.Group();
-      const hue = arch === 'brute' ? 0.02 : arch === 'crawler' ? 0.28 : 0.18;
+      const hue = arch === 'brute' ? 0.03 : arch === 'crawler' ? 0.27 : 0.16;
       const skin = new THREE.MeshStandardMaterial({
         map: TX.skin,
-        color: new THREE.Color().setHSL(hue, 0.25, arch === 'brute' ? 0.5 : 0.65),
-        roughness: 0.82,
+        color: new THREE.Color().setHSL(hue, 0.28, arch === 'brute' ? 0.48 : 0.62),
+        roughness: 0.72,
+      });
+      const boneM = new THREE.MeshStandardMaterial({
+        color: 0xd8ceb8,
+        roughness: 0.55,
+      });
+      const darkFleshM = new THREE.MeshStandardMaterial({
+        color: 0x3b1216,
+        roughness: 0.65,
       });
       const shirt = new THREE.MeshStandardMaterial({
         map: TX.cloth,
-        color: new THREE.Color().setHSL(rnd(0, 1), 0.25, rnd(0.22, 0.38)),
-        roughness: 1,
+        color: new THREE.Color().setHSL(rnd(0, 1), 0.25, rnd(0.26, 0.42)),
+        roughness: 0.9,
       });
       const pants = new THREE.MeshStandardMaterial({
         map: TX.cloth,
-        color: new THREE.Color().setHSL(0.6, 0.2, 0.2),
-        roughness: 1,
+        color: new THREE.Color().setHSL(0.6, 0.22, 0.24),
+        roughness: 0.9,
       });
-      const eyeColor = arch === 'brute' ? 0xff2244 : arch === 'crawler' ? 0xa3e635 : 0xffe08a;
+      const bootM = new THREE.MeshStandardMaterial({
+        color: 0x1a1817,
+        roughness: 0.6,
+      });
+      const socketM = new THREE.MeshBasicMaterial({ color: 0x050203 });
+      const eyeColor = arch === 'brute' ? 0xff2a4b : arch === 'crawler' ? 0xa3e635 : 0xffe066;
       const eyeM = new THREE.MeshBasicMaterial({ color: eyeColor });
 
       const hips = new THREE.Group();
@@ -940,10 +963,38 @@ export default function App() {
         return m;
       };
 
+      // Pelvis & Belt
+      const pelvis = mk(ZG.pelvis, pants, 'body');
+      pelvis.position.y = 0.02;
+      hips.add(pelvis);
+
+      // Sculpted Torso + Exposed Ribcage & Spine
       const torso = mk(ZG.torso, shirt, 'body');
       torso.position.y = 0.3;
-      torso.scale.set(arch === 'brute' ? 1.3 : 1, 1, arch === 'brute' ? 0.95 : 0.75);
+      torso.scale.set(arch === 'brute' ? 1.34 : 1.02, 1, arch === 'brute' ? 0.98 : 0.78);
       spine.add(torso);
+
+      const chestCore = mk(ZG.spineBone, darkFleshM, 'body');
+      chestCore.position.set(0, 0.3, 0.03);
+      spine.add(chestCore);
+
+      for (let r = 0; r < 4; r++) {
+        const rib = new THREE.Mesh(ZG.rib, boneM);
+        rib.rotation.x = Math.PI / 2;
+        rib.rotation.z = -Math.PI * 0.18;
+        rib.position.set(0, 0.18 + r * 0.075, 0.02);
+        rib.scale.set(arch === 'brute' ? 1.25 : 0.95, 0.75, 1);
+        spine.add(rib);
+      }
+
+      if (arch === 'brute') {
+        [-1, 1].forEach((s) => {
+          const sp = mk(ZG.shoulderPad, skin, 'body');
+          sp.position.set(s * 0.28, 0.56, 0.02);
+          sp.scale.set(1.2, 0.9, 1.1);
+          spine.add(sp);
+        });
+      }
 
       const neck = new THREE.Group();
       neck.position.y = 0.66;
@@ -951,44 +1002,86 @@ export default function App() {
 
       const head = mk(ZG.head, skin, 'head');
       head.position.set(0, 0.12, 0.02);
-      head.scale.set(0.95, 1.1, 1);
+      head.scale.set(0.96, 1.12, 1.02);
       neck.add(head);
 
+      const brow = mk(ZG.brow, skin, 'head');
+      brow.position.set(0, 0.175, 0.125);
+      brow.rotation.x = 0.15;
+      neck.add(brow);
+
+      // Acoustic clicker crests on stalker
+      if (arch === 'stalker') {
+        [-1, 1].forEach((s) => {
+          const cr = mk(ZG.crest, darkFleshM, 'head');
+          cr.position.set(s * 0.11, 0.21, 0.05);
+          cr.rotation.z = -s * 0.55;
+          neck.add(cr);
+        });
+      }
+
       const jaw = mk(ZG.jaw, skin, 'head');
-      jaw.position.set(0, 0, 0.1);
+      jaw.position.set(0, -0.005, 0.105);
+      jaw.rotation.x = 0.18;
       neck.add(jaw);
 
+      // 3D Teeth row
+      for (let t = -2; t <= 2; t++) {
+        const tooth = new THREE.Mesh(ZG.tooth, boneM);
+        tooth.position.set(t * 0.02, 0.032, 0.145);
+        neck.add(tooth);
+      }
+
       const eyes = [-1, 1].map((s) => {
+        const sock = new THREE.Mesh(ZG.eyeSocket, socketM);
+        sock.position.set(s * 0.052, 0.145, 0.122);
+        neck.add(sock);
         const e = new THREE.Mesh(ZG.eye, eyeM);
-        e.position.set(s * 0.05, 0.15, 0.125);
+        e.position.set(s * 0.052, 0.145, 0.142);
         neck.add(e);
         return e;
       });
 
       const armP = [-1, 1].map((s) => {
         const p = new THREE.Group();
-        p.position.set(s * (arch === 'brute' ? 0.32 : 0.26), 0.55, 0);
+        p.position.set(s * (arch === 'brute' ? 0.33 : 0.26), 0.55, 0);
         spine.add(p);
-        const a = mk(ZG.arm, shirt, 'limb');
-        a.position.y = -0.27;
-        p.add(a);
+        const ua = mk(ZG.upperArm, shirt, 'limb');
+        ua.position.y = -0.15;
+        p.add(ua);
+        const fa = mk(ZG.foreArm, skin, 'limb');
+        fa.position.set(0, -0.41, 0.03);
+        fa.rotation.x = -0.18;
+        p.add(fa);
         const h = mk(ZG.hand, skin, 'limb');
-        h.position.y = -0.56;
+        h.position.set(0, -0.57, 0.05);
         p.add(h);
+        for (let c = -1; c <= 1; c++) {
+          const claw = new THREE.Mesh(ZG.claw, boneM);
+          claw.position.set(c * 0.02, -0.63, 0.06);
+          claw.rotation.x = Math.PI + 0.2;
+          p.add(claw);
+        }
         return p;
       });
 
       const legP = [-1, 1].map((s) => {
         const p = new THREE.Group();
-        p.position.set(s * 0.1, 0, 0);
+        p.position.set(s * 0.11, 0, 0);
         hips.add(p);
-        const l = mk(ZG.leg, pants, 'limb');
-        l.position.y = -0.47;
-        p.add(l);
+        const th = mk(ZG.thigh, pants, 'limb');
+        th.position.y = -0.24;
+        p.add(th);
+        const sh = mk(ZG.shin, skin, 'limb');
+        sh.position.y = -0.64;
+        p.add(sh);
+        const bt = mk(ZG.boot, bootM, 'limb');
+        bt.position.set(0, -0.88, 0.04);
+        p.add(bt);
         return p;
       });
 
-      const scaleVal = arch === 'brute' ? 1.15 : arch === 'crawler' ? 0.88 : rnd(0.95, 1.04);
+      const scaleVal = arch === 'brute' ? 1.16 : arch === 'crawler' ? 0.88 : rnd(0.96, 1.04);
       g.scale.setScalar(scaleVal);
       g.position.set(x, 0, zz);
       scene.add(g);
@@ -2166,29 +2259,29 @@ export default function App() {
       }
       lightningLight.intensity = flashBoost;
 
-      hemi.intensity = 0.08 + 0.32 * f + (nv ? 0.55 : 0) + flashBoost * 0.25;
-      amb.intensity = 0.03 + 0.07 * f + (nv ? 0.35 : 0);
+      hemi.intensity = 0.18 + 0.38 * f + (nv ? 0.55 : 0) + flashBoost * 0.25;
+      amb.intensity = 0.08 + 0.1 * f + (nv ? 0.35 : 0);
 
       const now = performance.now() * 0.003;
       roomLights.forEach((l, i) => {
         let flicker = 1 + Math.sin(now + i * 2.1) * 0.04;
         if (monsterInterference > 0.1) {
           const glitch = Math.sin(now * 19 + i * 5) * Math.cos(now * 31);
-          flicker = glitch > 0.2 ? 0.12 : 1.15;
-          l.color.setHex(monsterInterference > 0.55 ? 0xffb4a2 : 0xdfe8ff);
+          flicker = glitch > 0.2 ? 0.16 : 1.25;
+          l.color.setHex(monsterInterference > 0.55 ? 0xffb4a2 : 0xffe9cf);
         } else {
-          l.color.setHex(0xdfe8ff);
+          l.color.setHex(0xffe9cf);
         }
-        l.intensity = (0.03 + 0.65 * f + (nv ? 0.5 : 0)) * flicker;
+        l.intensity = (0.18 + 0.72 * f + (nv ? 0.5 : 0)) * flicker;
       });
 
       winMats.forEach((m) => {
         const wf = clamp(f + flashBoost * 0.7, 0, 1);
-        m.color.setRGB(lerp(0.08, 0.78, wf), lerp(0.11, 0.86, wf), lerp(0.18, 0.96, wf));
+        m.color.setRGB(lerp(0.11, 0.78, wf), lerp(0.15, 0.86, wf), lerp(0.24, 0.96, wf));
       });
       shafts.forEach((s) => {
         s.visible = cfgRef.current.customShaders;
-        s.material.uniforms.uOpacity.value = 0.04 + 0.18 * f + flashBoost * 0.22;
+        s.material.uniforms.uOpacity.value = 0.06 + 0.18 * f + flashBoost * 0.22;
       });
       dust.material.opacity = 0.18 + 0.28 * f;
       radioLed.scale.setScalar(0.85 + Math.sin(now * 3) * 0.25);
@@ -2277,10 +2370,14 @@ export default function App() {
 
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
-      if (target && target.closest('button, aside, [role="dialog"], input')) return;
+      if (target && target.closest('button, aside, [role="dialog"], input, a')) return;
       sfx.init();
       if (S.mode !== 'playing' || S.paused) return;
-      if (e.clientX < window.innerWidth * 0.42 && stickId === null) {
+      if (
+        e.clientX < window.innerWidth * 0.44 &&
+        e.clientY > window.innerHeight * 0.45 &&
+        stickId === null
+      ) {
         stickId = e.pointerId;
         stickO = { x: e.clientX, y: e.clientY };
         if (stickRef.current && knobRef.current) {
@@ -2766,9 +2863,9 @@ export default function App() {
         if (S.battery < 22) {
           flick *= Math.sin(performance.now() * 0.035) > -0.3 ? 1 : 0.12;
         }
-        torch.intensity = 2.35 * flick;
+        torch.intensity = 2.85 * flick;
         beamMesh.visible = cfgRef.current.customShaders;
-        beamMat.uniforms.uIntensity.value = 0.22 * flick;
+        beamMat.uniforms.uIntensity.value = 0.24 * flick;
       } else {
         torch.intensity = 0;
         beamMesh.visible = false;
@@ -2924,7 +3021,7 @@ export default function App() {
     const stepMenuCamera = (dt: number) => {
       menuT += dt * 0.14;
       horrorShaderUniforms.uTime.value += dt;
-      applyDynamicHorrorLighting(0.05, dt);
+      applyDynamicHorrorLighting(0.28, dt);
       const x = 5.5 + Math.sin(menuT) * 3.1;
       const z = 8.7 + Math.cos(menuT * 0.7) * 1.6;
       camera.position.set(x, 1.52, z);
@@ -2935,7 +3032,7 @@ export default function App() {
       torch.intensity = 0;
       beamMesh.visible = false;
       roomLights.forEach((l, idx) => {
-        l.intensity = 0.22 + Math.sin(menuT * 5 + idx) * 0.04;
+        l.intensity = 0.48 + Math.sin(menuT * 5 + idx) * 0.06;
       });
     };
 
@@ -3525,24 +3622,24 @@ export default function App() {
           />
 
           {/* 2. Top-Center Clock & 120 FPS Counter */}
-          <div className="fixed top-3 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+          <div className="fixed top-2 lg:top-3 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
             <div
               ref={clockElRef}
-              className="px-4 py-1 rounded-full bg-[#0A0C10]/85 border border-white/15 font-mono font-bold text-sm tracking-wider text-white tabular-nums shadow-lg"
+              className="px-3 py-0.5 lg:px-4 lg:py-1 rounded-full bg-[#0A0C10]/90 border border-white/15 font-mono font-bold text-[11px] lg:text-sm tracking-wider text-white tabular-nums shadow-lg"
             >
               ДЕНЬ 1 <span className="text-[#9499A3] font-normal ml-1.5">06:00</span>
             </div>
             <div
               ref={fpsElRef}
               data-testid="fps-counter"
-              className="mt-1 font-mono text-[11px] font-bold text-emerald-400 tabular-nums drop-shadow"
+              className="mt-0.5 font-mono text-[9px] lg:text-[11px] font-bold text-emerald-400 tabular-nums drop-shadow"
             >
               120 FPS · 8.3 ms
             </div>
           </div>
 
           {/* 3. Top-Right Utility Controls (Save Checkpoint, Inventory, Pause/Settings) */}
-          <div className="fixed top-3 right-3 flex items-center gap-2 pointer-events-auto">
+          <div className="fixed top-2 right-2 lg:top-3 lg:right-3 flex items-center gap-1.5 lg:gap-2 pointer-events-auto">
             <button
               type="button"
               tabIndex={-1}
@@ -3551,7 +3648,7 @@ export default function App() {
                 engineApiRef.current?.saveToSlot('slot1');
               }}
               data-testid="quick-save-btn"
-              className="px-3 py-2 rounded-xl bg-[#0A0C10]/90 hover:bg-emerald-500/20 border border-white/15 text-xs font-bold text-emerald-300 shadow-lg cursor-pointer"
+              className="px-2.5 py-1 lg:px-3 lg:py-2 rounded-xl bg-[#0A0C10]/90 hover:bg-emerald-500/20 border border-white/15 text-[10px] lg:text-xs font-bold text-emerald-300 shadow-lg cursor-pointer"
               title="Быстрое сохранение в ключевой точке"
             >
               Сохранить
@@ -3565,7 +3662,7 @@ export default function App() {
                 setInvOpen(next);
                 engineApiRef.current?.setPausedState(next);
               }}
-              className="px-3 py-2 rounded-xl bg-[#0A0C10]/90 hover:bg-amber-500/20 border border-white/15 text-xs font-bold text-amber-300 shadow-lg cursor-pointer"
+              className="px-2.5 py-1 lg:px-3 lg:py-2 rounded-xl bg-[#0A0C10]/90 hover:bg-amber-500/20 border border-white/15 text-[10px] lg:text-xs font-bold text-amber-300 shadow-lg cursor-pointer"
               aria-label="Открыть инвентарь и крафт"
             >
               Крафт [{uiSnapshot.inv.scrap + uiSnapshot.inv.wood + uiSnapshot.inv.wires}]
@@ -3582,9 +3679,9 @@ export default function App() {
               }}
               data-testid="open-settings-btn"
               aria-label="Настройки и пауза"
-              className="w-10 h-10 rounded-xl bg-[#0A0C10]/90 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white shadow-lg cursor-pointer"
+              className="w-7 h-7 lg:w-10 lg:h-10 rounded-xl bg-[#0A0C10]/90 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white shadow-lg cursor-pointer"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg className="w-4 h-4 lg:w-5 lg:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <circle cx="12" cy="12" r="3" />
                 <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" />
               </svg>
@@ -3594,7 +3691,7 @@ export default function App() {
           {/* 4. Center Crosshair, Hitmarker & Toast Message */}
           <div
             ref={toastElRef}
-            className="fixed top-20 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-xl bg-black/80 border border-white/15 font-bold text-sm text-amber-300 text-center max-w-[60vw] transition-opacity duration-300 shadow-xl"
+            className="fixed top-12 lg:top-20 left-1/2 -translate-x-1/2 px-3 py-1 lg:px-4 lg:py-1.5 rounded-xl bg-black/85 border border-white/15 font-bold text-[11px] lg:text-sm text-amber-300 text-center max-w-[52vw] transition-opacity duration-300 shadow-xl"
             style={{ opacity: 0 }}
           />
           {!isHiddenState && (
@@ -3610,15 +3707,15 @@ export default function App() {
 
           {/* 5. Contextual Interact Button (#bUse) */}
           {interactPrompt && (
-            <div className="fixed right-[30vw] top-[42vh] flex flex-col items-center gap-1.5 pointer-events-auto">
-              <span className="px-3 py-1 rounded-lg bg-black/85 border border-amber-500/40 text-xs font-bold text-amber-300 shadow-lg">
+            <div className="fixed right-[26vw] top-[42vh] flex flex-col items-center gap-1 pointer-events-auto">
+              <span className="px-2.5 py-0.5 lg:px-3 lg:py-1 rounded-lg bg-black/90 border border-amber-500/45 text-[10px] lg:text-xs font-bold text-amber-300 shadow-lg max-w-[190px] text-center">
                 {interactPrompt}
               </span>
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.performInteract()}
                 data-testid="interact-btn"
-                className="w-14 h-14 rounded-full bg-amber-500/30 hover:bg-amber-500/45 border-2 border-amber-400 flex items-center justify-center text-white shadow-xl active:scale-90 transition-transform cursor-pointer"
+                className="w-11 h-11 lg:w-14 lg:h-14 rounded-full bg-amber-500/35 hover:bg-amber-500/50 border-2 border-amber-400 flex items-center justify-center text-white shadow-xl active:scale-90 transition-transform cursor-pointer"
                 aria-label={interactPrompt}
               >
                 <span className="font-mono font-bold text-xs">[E]</span>
@@ -3628,11 +3725,11 @@ export default function App() {
 
           {/* 6. Bottom-Center Quick Survival & Defense Tool Bar */}
           {!isHiddenState && (
-            <div className="fixed bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-2xl bg-[#0A0C10]/90 border border-white/15 pointer-events-auto shadow-[0_12px_32px_rgba(0,0,0,0.85)]">
+            <div className="fixed bottom-2 lg:bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 lg:gap-2 px-2 py-1 lg:px-3 lg:py-2 rounded-2xl bg-[#0A0C10]/92 border border-white/15 pointer-events-auto shadow-[0_12px_32px_rgba(0,0,0,0.85)]">
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.useConsumable('food')}
-                className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center gap-1.5 text-xs font-bold text-amber-300 cursor-pointer"
+                className="px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center gap-1 text-[10px] lg:text-xs font-bold text-amber-300 cursor-pointer"
                 title="Съесть консервы [G]"
               >
                 <span>Еда</span>
@@ -3641,7 +3738,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.useConsumable('water')}
-                className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center gap-1.5 text-xs font-bold text-sky-300 cursor-pointer"
+                className="px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center gap-1 text-[10px] lg:text-xs font-bold text-sky-300 cursor-pointer"
                 title="Выпить воду [H]"
               >
                 <span>Вода</span>
@@ -3651,33 +3748,33 @@ export default function App() {
                 type="button"
                 onClick={() => engineApiRef.current?.toggleTorch()}
                 data-testid="hud-torch-btn"
-                className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold cursor-pointer ${
+                className={`px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl border flex items-center gap-1 text-[10px] lg:text-xs font-bold cursor-pointer ${
                   uiSnapshot.torchOn
                     ? 'bg-amber-500 text-black border-amber-300'
                     : 'bg-white/5 text-white border-white/10 hover:bg-white/15'
                 }`}
                 title="Фонарик [F]"
               >
-                <span>Фонарь [F]</span>
+                <span>Фонарь</span>
               </button>
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.useDefenseTool('trap')}
                 data-testid="hud-trap-btn"
-                className="px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 flex items-center gap-1.5 text-xs font-bold text-rose-300 cursor-pointer"
+                className="px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 flex items-center gap-1 text-[10px] lg:text-xs font-bold text-rose-300 cursor-pointer"
                 title="Поставить медвежий капкан [T]"
               >
-                <span>Капкан [T]</span>
+                <span>Капкан</span>
                 <span className="font-mono text-white tabular-nums">{uiSnapshot.inv.traps}</span>
               </button>
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.useDefenseTool('decoy')}
                 data-testid="hud-decoy-btn"
-                className="px-2.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 flex items-center gap-1.5 text-xs font-bold text-emerald-300 cursor-pointer"
+                className="px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 flex items-center gap-1 text-[10px] lg:text-xs font-bold text-emerald-300 cursor-pointer"
                 title="Бросить шумовой будильник [Z]"
               >
-                <span>Приманка [Z]</span>
+                <span>Приманка</span>
                 <span className="font-mono text-white tabular-nums">{uiSnapshot.inv.decoys}</span>
               </button>
             </div>
@@ -3690,35 +3787,34 @@ export default function App() {
               onPointerDown={() => engineApiRef.current?.setBreathHeld(true)}
               onPointerUp={() => engineApiRef.current?.setBreathHeld(false)}
               onPointerCancel={() => engineApiRef.current?.setBreathHeld(false)}
-              className="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-2xl bg-cyan-500/25 hover:bg-cyan-500/35 border-2 border-cyan-400 text-cyan-200 font-bold text-sm pointer-events-auto shadow-2xl active:scale-95 cursor-pointer"
+              className="fixed bottom-4 lg:bottom-8 left-1/2 -translate-x-1/2 px-5 py-2.5 lg:px-6 lg:py-3.5 rounded-2xl bg-cyan-500/25 hover:bg-cyan-500/35 border-2 border-cyan-400 text-cyan-200 font-bold text-xs lg:text-sm pointer-events-auto shadow-2xl active:scale-95 cursor-pointer"
             >
               ЗАДЕРЖАТЬ ДЫХАНИЕ [УДЕРЖИВАЙ B]
             </button>
           )}
 
-          {/* 7. Right-Side Combat & Movement Action Cluster */}
+          {/* 7. Right-Side Combat & Movement Action Cluster (Non-overlapping on 800x360 & Desktop) */}
           {!isHiddenState && (
             <>
               <div
                 ref={ammoElRef}
-                className="fixed right-4 bottom-4 text-right font-mono font-bold text-xl text-white tabular-nums drop-shadow-[0_2px_8px_#000]"
+                className="fixed right-3 bottom-2 lg:right-4 lg:bottom-4 text-right font-mono font-bold text-sm lg:text-xl text-white tabular-nums drop-shadow-[0_2px_8px_#000]"
               >
-                <small className="block text-xs text-[#9499A3] font-medium">БЕЗ ОРУЖИЯ</small>
+                <small className="block text-[9px] lg:text-xs text-[#9499A3] font-medium">БЕЗ ОРУЖИЯ</small>
               </div>
 
               <div
-                className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col items-end gap-2.5 pointer-events-auto"
+                className="fixed right-2.5 lg:right-4 top-[54px] lg:top-1/2 lg:-translate-y-1/2 flex flex-col items-end gap-1.5 lg:gap-2.5 pointer-events-auto"
                 style={{
-                  transform: `translateY(-50%) scale(${cfg.uiScale})`,
                   opacity: cfg.uiOpacity,
                 }}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 lg:gap-2">
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.swapWeapon()}
                     aria-label="Сменить оружие"
-                    className="w-11 h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
                   >
                     Оруж
                   </button>
@@ -3726,18 +3822,18 @@ export default function App() {
                     type="button"
                     onClick={() => engineApiRef.current?.reloadWeapon()}
                     aria-label="Перезарядить оружие"
-                    className="w-11 h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
                   >
                     Перез
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-1.5 lg:gap-2">
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.toggleAim()}
                     aria-label="Прицелиться"
-                    className="w-12 h-12 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
                   >
                     Прицел
                   </button>
@@ -3747,18 +3843,18 @@ export default function App() {
                     onPointerUp={() => engineApiRef.current?.setFireHeld(false)}
                     onPointerCancel={() => engineApiRef.current?.setFireHeld(false)}
                     aria-label="Огонь"
-                    className="w-16 h-16 rounded-full bg-rose-600/40 hover:bg-rose-600/60 border-2 border-rose-400 flex items-center justify-center text-white font-bold text-xs shadow-xl active:scale-90 cursor-pointer"
+                    className="w-12 h-12 lg:w-16 lg:h-16 rounded-full bg-rose-600/45 hover:bg-rose-600/65 border-2 border-rose-400 flex items-center justify-center text-white font-bold text-[10px] lg:text-xs shadow-xl active:scale-90 cursor-pointer"
                   >
                     ОГОНЬ
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 lg:gap-2">
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.toggleCrouch()}
                     aria-label="Присесть"
-                    className="w-11 h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
                   >
                     Присед
                   </button>
@@ -3766,7 +3862,7 @@ export default function App() {
                     type="button"
                     onClick={() => engineApiRef.current?.triggerJump()}
                     aria-label="Прыжок"
-                    className="w-11 h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
                   >
                     Прыжок
                   </button>
@@ -3778,19 +3874,19 @@ export default function App() {
       )}
 
       {/* =====================================================================
-          TITLE SCREEN (Main Menu with 3D Live World Camera Tour)
+          TITLE SCREEN (Fits 100% inside 800x360 Mobile Landscape & 1440x900 Desktop)
          ===================================================================== */}
       {screenMode === 'title' && (
         <div
           data-testid="title-screen"
-          className="fixed inset-0 z-30 flex flex-col lg:flex-row items-stretch justify-between p-6 sm:p-10 bg-gradient-to-r from-[#040507]/95 via-[#040507]/60 to-[#040507]/85"
+          className="fixed inset-0 z-30 grid grid-cols-12 gap-3 lg:gap-8 items-center px-4 py-2.5 lg:px-12 lg:py-8 overflow-hidden bg-gradient-to-r from-[#040507]/95 via-[#040507]/65 to-[#040507]/88"
         >
-          {/* Left Column: Custom Inline SVG Emblem & Atmosphere */}
-          <div className="flex flex-col justify-between max-w-xl">
+          {/* Left Column: Custom Inline SVG Emblem, Title & Quick Menu Buttons */}
+          <div className="col-span-7 flex flex-col justify-between gap-2 lg:gap-5">
             <div>
               {/* Custom Inline SVG Horror Title Lockup */}
-              <div className="flex items-center gap-3 mb-3">
-                <svg className="w-11 h-11 text-amber-500 shrink-0" viewBox="0 0 48 48" fill="none">
+              <div className="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-3">
+                <svg className="w-6 h-6 lg:w-10 lg:h-10 text-amber-500 shrink-0" viewBox="0 0 48 48" fill="none">
                   <circle cx="24" cy="24" r="21" stroke="currentColor" strokeWidth="2" strokeDasharray="6 3" />
                   <path
                     d="M10 24h5l3-9 4 18 4-14 3 10 3-5h6"
@@ -3800,25 +3896,25 @@ export default function App() {
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span className="font-mono text-xs tracking-[0.25em] text-amber-400 uppercase">
+                <span className="font-mono text-[9px] lg:text-xs tracking-[0.18em] text-amber-400 uppercase">
                   120 FPS · GLSL SHADERS · SURVIVAL HORROR
                 </span>
               </div>
 
-              <h1 className="font-['Unbounded'] text-5xl sm:text-7xl font-extrabold tracking-tight text-white leading-none">
+              <h1 className="font-['Unbounded'] text-3xl lg:text-6xl font-extrabold tracking-tight text-white leading-none">
                 ТИШИНА
-                <span className="block text-xl sm:text-2xl text-amber-500 font-bold mt-2 tracking-normal">
+                <span className="block text-xs lg:text-2xl text-amber-500 font-bold mt-1 lg:mt-2 tracking-normal">
                   7 дней выживания · Ultra Edition
                 </span>
               </h1>
 
-              <p className="mt-4 text-sm sm:text-base text-[#9499A3] leading-relaxed max-w-lg">
+              <p className="mt-1.5 lg:mt-4 text-[11px] lg:text-base text-[#9499A3] leading-snug lg:leading-relaxed max-w-xl line-clamp-3 lg:line-clamp-none">
                 Ты заперт в доме посреди ослепшего апокалипсиса. Монстры не видят во тьме, но слышат каждый шорох, скрип половиц и твоё дыхание. Следи за постоянной шкалой шума слева, экономь батарею фонарика, собирай ресурсы и крафти капканы, чтобы дожить до рассвета седьмого дня.
               </p>
             </div>
 
-            <div className="mt-6 space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
+            <div className="space-y-1.5 lg:space-y-3">
+              <div className="flex flex-wrap items-center gap-2 lg:gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -3827,7 +3923,7 @@ export default function App() {
                     setScreenMode('paused');
                   }}
                   data-testid="menu-settings-btn"
-                  className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-sm font-bold text-white cursor-pointer"
+                  className="px-3 py-1.5 lg:px-5 lg:py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-[11px] lg:text-sm font-bold text-white cursor-pointer"
                 >
                   Настройки (120 FPS и Шейдеры)
                 </button>
@@ -3840,72 +3936,72 @@ export default function App() {
                     setScreenMode('paused');
                   }}
                   data-testid="menu-checkpoints-btn"
-                  className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-sm font-bold text-amber-300 cursor-pointer"
+                  className="px-3 py-1.5 lg:px-5 lg:py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-[11px] lg:text-sm font-bold text-amber-300 cursor-pointer"
                 >
-                  Ключевые точки ({ Object.keys(loadAllCheckpoints()).length })
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setApkModalOpen(true)}
-                  data-testid="open-apk-export-btn"
-                  className="px-5 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/45 text-sm font-bold text-emerald-300 cursor-pointer"
-                >
-                  Скачать index.html (APK / GitHub)
+                  Ключевые точки ({Object.keys(loadAllCheckpoints()).length})
                 </button>
               </div>
 
-              <div className="text-xs font-mono text-[#9499A3]">
-                WASD Ходьба · C Присед · F Фонарик · V Батарея · I/C Инвентарь и Крафт · T Капкан · Z Приманка
+              <div className="text-[10px] lg:text-xs font-mono text-[#9499A3] truncate">
+                Джойстик / WASD Ходьба · C Присед · F Фонарь · V Батарея · I Крафт
               </div>
             </div>
           </div>
 
-          {/* Right Column: Difficulty Cards & Primary Start CTA */}
-          <div className="flex flex-col justify-center gap-3.5 w-full lg:w-[420px] mt-6 lg:mt-0">
-            {(Object.keys(DIFFICULTIES) as DifficultyKey[]).map((k) => {
-              const d = DIFFICULTIES[k];
-              const selected = selDiff === k;
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => {
-                    setSelDiff(k);
-                    sfx.click();
-                  }}
-                  className={`text-left p-4 rounded-2xl border transition-all cursor-pointer ${
-                    selected
-                      ? 'bg-amber-950/45 border-amber-500 shadow-[0_0_25px_rgba(245,158,11,0.2)]'
-                      : 'bg-[#111318]/80 border-white/10 hover:border-white/25'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-['Unbounded'] font-bold text-base text-white">{d.name}</span>
-                    {selected && (
-                      <span className="font-mono text-xs font-bold text-amber-400">ВЫБРАНО</span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-[#9499A3] leading-relaxed">{d.desc}</p>
-                </button>
-              );
-            })}
+          {/* Right Column: Compact Difficulty Selector & Prominent Start CTA */}
+          <div className="col-span-5 flex flex-col justify-center gap-1.5 lg:gap-3">
+            <div className="flex flex-col gap-1.5 lg:gap-2.5">
+              {(Object.keys(DIFFICULTIES) as DifficultyKey[]).map((k) => {
+                const d = DIFFICULTIES[k];
+                const selected = selDiff === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => {
+                      setSelDiff(k);
+                      sfx.click();
+                    }}
+                    className={`text-left py-2 px-3 lg:p-3.5 rounded-xl lg:rounded-2xl border transition-all cursor-pointer ${
+                      selected
+                        ? 'bg-amber-950/55 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
+                        : 'bg-[#111318]/85 border-white/10 hover:border-white/25'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-['Unbounded'] font-bold text-xs lg:text-base text-white">
+                        {d.name}
+                      </span>
+                      {selected && (
+                        <span className="font-mono text-[10px] lg:text-xs font-bold text-amber-400">
+                          ВЫБРАНО
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[10px] lg:text-xs text-[#9499A3] leading-tight lg:leading-relaxed line-clamp-1 lg:line-clamp-2">
+                      {d.desc}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-2 lg:gap-3 pt-1">
               <button
                 type="button"
                 data-start="true"
                 data-testid="start-game-btn"
                 onClick={() => engineApiRef.current?.startNewGame(selDiff)}
-                className="flex-1 py-3.5 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-['Unbounded'] font-bold text-sm tracking-tight shadow-[0_10px_28px_rgba(245,158,11,0.45)] active:scale-98 transition-transform cursor-pointer"
+                className="flex-1 py-2.5 lg:py-3.5 px-4 lg:px-6 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-['Unbounded'] font-extrabold text-xs lg:text-sm tracking-tight shadow-[0_10px_28px_rgba(245,158,11,0.5)] active:scale-95 transition-transform cursor-pointer"
               >
-                НАЧАТЬ ВЫЖИВАНИЕ
+                ИГРАТЬ · ВЫЖИТЬ
               </button>
               {hasSavedGame && (
                 <button
                   type="button"
                   data-testid="continue-game-btn"
                   onClick={handleContinueSaved}
-                  className="py-3.5 px-5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-sm cursor-pointer"
+                  className="py-2.5 lg:py-3.5 px-3 lg:px-5 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-500/50 text-emerald-300 font-bold text-xs lg:text-sm cursor-pointer"
                 >
                   Продолжить
                 </button>
@@ -4041,11 +4137,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* =====================================================================
-          STANDALONE SINGLE-FILE APK / GITHUB EXPORT MODAL
-         ===================================================================== */}
-      <ApkExportModal open={apkModalOpen} onClose={() => setApkModalOpen(false)} />
     </main>
   );
 }

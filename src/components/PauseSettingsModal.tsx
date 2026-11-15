@@ -83,24 +83,24 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
       aria-modal="true"
       aria-label="Меню паузы, сохранений и настроек"
       data-testid="pause-settings-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-3 sm:p-5 select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-2 sm:p-5 select-none"
     >
-      <div className="w-full max-w-4xl h-[88vh] rounded-2xl bg-[#111318] border border-white/15 shadow-[0_28px_80px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden">
+      <div className="w-full max-w-4xl h-[94vh] sm:h-[88vh] rounded-2xl bg-[#111318] border border-white/15 shadow-[0_28px_80px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden">
         {/* Top Navigation Tabs */}
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 bg-[#0B0D11]">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3 border-b border-white/10 bg-[#0B0D11]">
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto">
             {[
               { id: 0, label: 'Пауза и Справка' },
               { id: 1, label: 'Ключевые Точки' },
-              { id: 2, label: 'Настройки (120 FPS и Шейдеры)' },
-              { id: 3, label: 'Мод-меню Режиссёра' },
+              { id: 2, label: 'Настройки (120 FPS)' },
+              { id: 3, label: 'Мод-меню' },
             ].map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
                 data-testid={`pause-tab-${t.id}`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
                   tab === t.id
                     ? 'bg-amber-500 text-black'
                     : 'bg-white/5 text-[#9499A3] hover:text-white'
@@ -115,14 +115,14 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
             type="button"
             onClick={onClose}
             data-testid="resume-btn"
-            className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold whitespace-nowrap shrink-0 cursor-pointer"
+            className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-[11px] sm:text-xs font-bold whitespace-nowrap shrink-0 cursor-pointer"
           >
-            {isFromMainMenu ? 'Назад в меню' : 'Продолжить [Esc]'}
+            {isFromMainMenu ? 'Назад' : 'В игру [Esc]'}
           </button>
         </div>
 
         {/* Tab Contents */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5 text-sm">
+        <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y p-3 sm:p-5 space-y-4 text-sm">
           {/* TAB 0: OVERVIEW & GUIDE */}
           {tab === 0 && (
             <div className="space-y-5">
