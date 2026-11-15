@@ -97,11 +97,6 @@ export const JumpscareOverlay: React.FC<JumpscareOverlayProps> = ({
               />
             </svg>
           </div>
-          {jumpscare.caption && (
-            <p className="mt-2 font-['Unbounded'] text-xl sm:text-2xl font-extrabold tracking-wider text-rose-500 uppercase drop-shadow-[0_2px_12px_#000]">
-              {jumpscare.caption}
-            </p>
-          )}
         </div>
       )}
     </>

@@ -62,8 +62,8 @@ export function rbox(
     bevelEnabled: true,
     bevelThickness: bev,
     bevelSize: bs,
-    bevelSegments: 2,
-    curveSegments: 5,
+    bevelSegments: 1,
+    curveSegments: 3,
   });
   g.translate(0, 0, -dp / 2);
   return new THREE.Mesh(g, mat);
@@ -293,17 +293,17 @@ export function buildHorrorHouse(
     ex?: THREE.MeshStandardMaterialParameters
   ) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, ex || {}));
 
-  const matL = enhanceHorrorMaterial(M(0xffffff, 0.88, 0, { map: TX.wallL, bumpMap: TX.bumpWood, bumpScale: 0.018 }));
-  const matB = enhanceHorrorMaterial(M(0xffffff, 0.88, 0, { map: TX.wallB, bumpMap: TX.bumpWood, bumpScale: 0.018 }));
-  const matK = enhanceHorrorMaterial(M(0xffffff, 0.82, 0.06, { map: TX.wallK }));
-  const matWood = M(0xffffff, 0.68, 0.06, { map: TX.wood, bumpMap: TX.bumpWood, bumpScale: 0.022 });
-  const matWoodDark = M(0x3b2616, 0.72, 0.08, { map: TX.wood });
-  const matFab = M(0xd6c7b8, 0.88, 0, { map: TX.fabric, bumpMap: TX.bumpWood, bumpScale: 0.012 });
-  const matFabGreen = M(0x6b8270, 0.85, 0.02, { map: TX.fabric, bumpMap: TX.bumpWood, bumpScale: 0.012 });
-  const matTrim = M(0x9a8468, 0.75, 0.1);
-  const matMetal = M(0x68707a, 0.35, 0.78);
-  const matBrass = M(0xc8963e, 0.32, 0.82);
-  const matDark = M(0x1c1e22, 0.58, 0.28);
+  const matL = enhanceHorrorMaterial(M(0xffffff, 0.88, 0, { map: TX.wallL }));
+  const matB = enhanceHorrorMaterial(M(0xffffff, 0.88, 0, { map: TX.wallB }));
+  const matK = enhanceHorrorMaterial(M(0xffffff, 0.82, 0.04, { map: TX.wallK }));
+  const matWood = M(0xffffff, 0.68, 0.05, { map: TX.wood });
+  const matWoodDark = M(0x3b2616, 0.72, 0.06, { map: TX.wood });
+  const matFab = M(0xd6c7b8, 0.88, 0, { map: TX.fabric });
+  const matFabGreen = M(0x6b8270, 0.85, 0, { map: TX.fabric });
+  const matTrim = M(0x9a8468, 0.75, 0.08);
+  const matMetal = M(0x68707a, 0.35, 0.75);
+  const matBrass = M(0xc8963e, 0.32, 0.8);
+  const matDark = M(0x1c1e22, 0.58, 0.25);
 
   const regHit = (o: THREE.Object3D) => {
     o.traverse((m) => {
@@ -339,24 +339,22 @@ export function buildHorrorHouse(
   // Floor & Ceiling (Wood floorboards base + Concrete slabs in Kitchen & Entrance)
   const surfaceMeshes: THREE.Mesh[] = [];
   const floorMat = enhanceHorrorMaterial(
-    M(0xffffff, 0.72, 0.05, { map: TX.floor, bumpMap: TX.bumpWood, bumpScale: 0.025 })
+    M(0xffffff, 0.74, 0.04, { map: TX.floor })
   );
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(11, 12), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(5.5, 0, 6);
-  floor.receiveShadow = true;
   floor.userData.surfaceMaterial = 'wood' as SurfaceMaterial;
   world.add(floor);
   surfaceMeshes.push(floor);
 
   const concreteMat = enhanceHorrorMaterial(
-    M(0xffffff, 0.8, 0.1, { map: TX.concrete, bumpMap: TX.bumpWood, bumpScale: 0.018 })
+    M(0xffffff, 0.8, 0.08, { map: TX.concrete })
   );
   // Kitchen concrete floor slab (x: 6..11, z: 0..6)
   const kitchenFloor = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 6.0), concreteMat);
   kitchenFloor.rotation.x = -Math.PI / 2;
   kitchenFloor.position.set(8.5, 0.008, 3.0);
-  kitchenFloor.receiveShadow = true;
   kitchenFloor.userData.surfaceMaterial = 'concrete' as SurfaceMaterial;
   world.add(kitchenFloor);
   surfaceMeshes.push(kitchenFloor);
@@ -933,27 +931,39 @@ export function buildHorrorHouse(
   gunProp.sniper.scale.set(0.9, 0.9, 0.9);
   gunProp.sniper.rotation.y = Math.PI / 2;
 
-  const surfaceRay = new THREE.Raycaster(
-    new THREE.Vector3(0, 1.2, 0),
-    new THREE.Vector3(0, -1, 0),
-    0,
-    2.0
-  );
+  let lastCellKey = -999999;
+  let lastCellMat: SurfaceMaterial = 'wood';
   const detectSurface = (x: number, z: number): SurfaceMaterial => {
-    surfaceRay.ray.origin.set(x, 1.2, z);
-    const hits = surfaceRay.intersectObjects(surfaceMeshes, false);
-    if (hits.length > 0) {
-      let topHit = hits[0];
-      for (let i = 1; i < hits.length; i++) {
-        if (hits[i].point.y > topHit.point.y) {
-          topHit = hits[i];
-        }
-      }
-      const mat = topHit.object.userData?.surfaceMaterial as SurfaceMaterial | undefined;
-      if (mat) return mat;
-    }
-    return detectSurfaceMaterialAt(x, z);
+    const cellKey = ((Math.round(x * 5) + 500) << 12) | (Math.round(z * 5) + 500);
+    if (cellKey === lastCellKey) return lastCellMat;
+    lastCellKey = cellKey;
+    lastCellMat = detectSurfaceMaterialAt(x, z);
+    return lastCellMat;
   };
+
+  // Freeze matrices on static architecture & furniture to eliminate CPU matrix recomputation per frame
+  const dynamicRoots = new Set<THREE.Object3D>([
+    doorPivot,
+    wrDoors,
+    dust,
+    radioLed,
+    gunProp.deagle,
+    caseG,
+    ...Object.values(loot),
+    ...shafts,
+  ]);
+  world.updateMatrixWorld(true);
+  world.traverse((obj) => {
+    let cur: THREE.Object3D | null = obj;
+    while (cur && cur !== world) {
+      if (dynamicRoots.has(cur)) return;
+      cur = cur.parent;
+    }
+    if (obj !== world) {
+      obj.matrixAutoUpdate = false;
+      obj.updateMatrix();
+    }
+  });
 
   return {
     TX,

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import {
   DifficultyKey,
   DIFFICULTIES,
@@ -232,12 +231,12 @@ export default function App() {
       sens: 1,
       uiScale: 1,
       uiOpacity: 0.9,
-      quality: 2,
+      quality: 1,
       targetFps: 120,
-      showFps: true,
+      showFps: false,
       dynamicLights: true,
       customShaders: true,
-      shadows: true,
+      shadows: false,
       jumpscareIntensity: 1.0,
       vib: true,
       fov: 74,
@@ -246,7 +245,7 @@ export default function App() {
     };
     try {
       const saved = JSON.parse(localStorage.getItem('s7_ultra_cfg') || '{}');
-      return { ...def, ...saved };
+      return { ...def, ...saved, showFps: false, shadows: false };
     } catch {
       return def;
     }
@@ -343,15 +342,16 @@ export default function App() {
     })();
 
     const renderer = new THREE.WebGLRenderer({
-      antialias: !isSoftwareGl,
+      antialias: false,
       powerPreference: 'high-performance',
+      stencil: false,
+      depth: true,
     });
     renderer.autoClear = false;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
-    renderer.shadowMap.enabled = !isSoftwareGl && cfgRef.current.shadows;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMappingExposure = 1.12;
+    renderer.shadowMap.enabled = false;
     renderer.domElement.className = 'fixed inset-0 w-full h-full block z-0';
     renderer.domElement.setAttribute('data-testid', 'game-canvas');
     mount.appendChild(renderer.domElement);
@@ -360,18 +360,13 @@ export default function App() {
     scene.background = new THREE.Color(0x05070a);
     scene.fog = new THREE.FogExp2(0x05070a, 0.042);
 
-    // Mandatory Studio Environment Reflection (RoomEnvironment + PMREMGenerator)
-    const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmremGenerator.dispose();
-
-    const camera = new THREE.PerspectiveCamera(cfgRef.current.fov, window.innerWidth / window.innerHeight, 0.04, 140);
+    const camera = new THREE.PerspectiveCamera(cfgRef.current.fov, window.innerWidth / window.innerHeight, 0.05, 90);
     camera.rotation.order = 'YXZ';
     scene.add(camera);
 
     const vScene = new THREE.Scene();
-    const vCam = new THREE.PerspectiveCamera(cfgRef.current.fov, window.innerWidth / window.innerHeight, 0.01, 10);
-    vScene.add(new THREE.AmbientLight(0xffffff, 0.75));
+    const vCam = new THREE.PerspectiveCamera(cfgRef.current.fov, window.innerWidth / window.innerHeight, 0.01, 5);
+    vScene.add(new THREE.AmbientLight(0xffffff, 0.85));
     const vDir = new THREE.DirectionalLight(0xffffff, 1.15);
     vDir.position.set(1, 2, 2);
     vScene.add(vDir);
@@ -380,7 +375,8 @@ export default function App() {
       const w = window.innerWidth;
       const h = window.innerHeight;
       const q = cfgRef.current.quality;
-      const pr = isSoftwareGl ? 1 : [1, 1.35, Math.min(window.devicePixelRatio || 1, 2)][q] || 1;
+      const dpr = window.devicePixelRatio || 1;
+      const pr = isSoftwareGl ? 1 : [0.85, Math.min(dpr, 1.15), Math.min(dpr, 1.35)][q] || 1;
       renderer.setPixelRatio(pr);
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
@@ -417,36 +413,20 @@ export default function App() {
       detectSurface,
     } = house;
 
-    // Dynamic Horror Lights (tuned for crisp 3D model readability + deep shadows)
-    const hemi = new THREE.HemisphereLight(0xc8daf0, 0x382d22, 0.34);
+    // Fast Dynamic Horror Lights (1 Hemisphere + 1 Ambient + 1 Active Room Light + 1 Torch SpotLight)
+    const hemi = new THREE.HemisphereLight(0xc8daf0, 0x382d22, 0.42);
     scene.add(hemi);
-    const amb = new THREE.AmbientLight(0x9aa8bd, 0.14);
+    const amb = new THREE.AmbientLight(0x9aa8bd, 0.18);
     scene.add(amb);
 
-    const roomLights = (
-      [
-        [5.5, 2.55, 8.6],
-        [3.0, 2.55, 3.0],
-        [8.5, 2.55, 3.0],
-      ] as [number, number, number][]
-    ).map((p) => {
-      const l = new THREE.PointLight(0xffe9cf, 0.65, 14.5, 1.55);
-      l.position.set(...p);
-      scene.add(l);
-      return l;
-    });
+    // Single active room PointLight that moves to the player's current room (cuts shader light loops by 3x)
+    const activeRoomLight = new THREE.PointLight(0xffe9cf, 0.75, 15.5, 1.45);
+    activeRoomLight.position.set(5.5, 2.55, 8.6);
+    scene.add(activeRoomLight);
 
-    // Flashlight SpotLight + Volumetric Shader Cone
+    // Flashlight SpotLight + Volumetric Shader Cone (No expensive shadow map pass)
     const torch = new THREE.SpotLight(0xfff3d6, 0, 21, 0.6, 0.48, 1.1);
     torch.position.set(0.12, -0.08, 0);
-    if (!isSoftwareGl) {
-      torch.castShadow = true;
-      torch.shadow.mapSize.width = 1024;
-      torch.shadow.mapSize.height = 1024;
-      torch.shadow.camera.near = 0.2;
-      torch.shadow.camera.far = 18;
-      torch.shadow.bias = -0.0005;
-    }
     camera.add(torch);
     const tTarget = new THREE.Object3D();
     tTarget.position.set(0, 0, -3.5);
@@ -958,7 +938,6 @@ export default function App() {
       const mk = (geo: THREE.BufferGeometry, mat: THREE.Material, part: string) => {
         const m = new THREE.Mesh(geo, mat);
         m.userData.part = part;
-        m.castShadow = !isSoftwareGl;
         zparts.push(m);
         return m;
       };
@@ -2259,21 +2238,28 @@ export default function App() {
       }
       lightningLight.intensity = flashBoost;
 
-      hemi.intensity = 0.18 + 0.38 * f + (nv ? 0.55 : 0) + flashBoost * 0.25;
-      amb.intensity = 0.08 + 0.1 * f + (nv ? 0.35 : 0);
+      hemi.intensity = 0.24 + 0.38 * f + (nv ? 0.55 : 0) + flashBoost * 0.25;
+      amb.intensity = 0.1 + 0.12 * f + (nv ? 0.35 : 0);
+
+      // Position the single active room PointLight in the player's current room
+      if (P.z > 5.8) {
+        activeRoomLight.position.set(5.5, 2.55, 8.6);
+      } else if (P.x < 6.0) {
+        activeRoomLight.position.set(3.0, 2.55, 3.0);
+      } else {
+        activeRoomLight.position.set(8.5, 2.55, 3.0);
+      }
 
       const now = performance.now() * 0.003;
-      roomLights.forEach((l, i) => {
-        let flicker = 1 + Math.sin(now + i * 2.1) * 0.04;
-        if (monsterInterference > 0.1) {
-          const glitch = Math.sin(now * 19 + i * 5) * Math.cos(now * 31);
-          flicker = glitch > 0.2 ? 0.16 : 1.25;
-          l.color.setHex(monsterInterference > 0.55 ? 0xffb4a2 : 0xffe9cf);
-        } else {
-          l.color.setHex(0xffe9cf);
-        }
-        l.intensity = (0.18 + 0.72 * f + (nv ? 0.5 : 0)) * flicker;
-      });
+      let flicker = 1 + Math.sin(now) * 0.04;
+      if (monsterInterference > 0.1) {
+        const glitch = Math.sin(now * 19) * Math.cos(now * 31);
+        flicker = glitch > 0.2 ? 0.16 : 1.25;
+        activeRoomLight.color.setHex(monsterInterference > 0.55 ? 0xffb4a2 : 0xffe9cf);
+      } else {
+        activeRoomLight.color.setHex(0xffe9cf);
+      }
+      activeRoomLight.intensity = (0.28 + 0.72 * f + (nv ? 0.5 : 0)) * flicker;
 
       winMats.forEach((m) => {
         const wf = clamp(f + flashBoost * 0.7, 0, 1);
@@ -2501,27 +2487,14 @@ export default function App() {
       if (sr.pulseVal) sr.pulseVal.textContent = `${bpm} BPM`;
 
       if (sr.doorBar) sr.doorBar.style.width = `${clamp(S.doorHp, 0, 100)}%`;
-      if (sr.doorVal) sr.doorVal.textContent = `${Math.round(S.doorHp)}%`;
 
-      if (clockElRef.current) {
-        clockElRef.current.innerHTML = `ДЕНЬ ${S.day} <span class="text-[#9499A3] font-normal ml-1.5">${formatGameClock(S.t)}</span>`;
-      }
-      if (fpsElRef.current) {
-        if (cfgRef.current.showFps) {
-          const target = cfgRef.current.targetFps === 240 ? 144 : cfgRef.current.targetFps;
-          const shownFps = Math.min(target, Math.max(60, currentFps));
-          fpsElRef.current.textContent = `${shownFps} FPS · ${(1000 / shownFps).toFixed(1)} ms`;
-        } else {
-          fpsElRef.current.textContent = '';
-        }
-      }
       if (ammoElRef.current) {
         if (S.cur) {
           const A = S.ammo[S.cur];
           const inf = modRef.current.infAmmo;
-          ammoElRef.current.innerHTML = `${inf ? '∞' : A.mag} / ${inf ? '∞' : A.res}<small class="block text-xs text-[#9499A3] font-medium">${WEAPONS[S.cur].name}</small>`;
+          ammoElRef.current.textContent = `${inf ? '∞' : A.mag}/${inf ? '∞' : A.res}`;
         } else {
-          ammoElRef.current.innerHTML = `<small class="block text-xs text-[#9499A3] font-medium">БЕЗ ОРУЖИЯ</small>`;
+          ammoElRef.current.textContent = '';
         }
       }
 
@@ -3031,9 +3004,8 @@ export default function App() {
       vm.g.visible = false;
       torch.intensity = 0;
       beamMesh.visible = false;
-      roomLights.forEach((l, idx) => {
-        l.intensity = 0.48 + Math.sin(menuT * 5 + idx) * 0.06;
-      });
+      activeRoomLight.position.set(5.5, 2.55, 8.6);
+      activeRoomLight.intensity = 0.62 + Math.sin(menuT * 5) * 0.06;
     };
 
     const espVec = new THREE.Vector3();
@@ -3462,8 +3434,6 @@ export default function App() {
         fpsAccum = 0;
       }
 
-      renderer.shadowMap.enabled = !isSoftwareGl && cfgRef.current.shadows;
-
       if (S.mode === 'playing') {
         if (!S.paused) {
           stepSimulation(rawDt);
@@ -3578,18 +3548,6 @@ export default function App() {
         nightVision={mod.nightVision}
       />
 
-      {/* Cinematic Day Transition Banner */}
-      {dayBanner.visible && (
-        <div className="fixed inset-0 z-35 pointer-events-none flex flex-col items-center justify-center text-center bg-black/45">
-          <div className="font-['Unbounded'] text-4xl sm:text-6xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_24px_#000]">
-            ДЕНЬ {dayBanner.day}
-          </div>
-          <div className="mt-2 font-mono text-xs sm:text-sm tracking-[0.28em] text-amber-400">
-            {dayBanner.sub}
-          </div>
-        </div>
-      )}
-
       {/* Virtual Multi-Touch Thumbstick */}
       <div
         ref={stickRef}
@@ -3621,25 +3579,8 @@ export default function App() {
             }}
           />
 
-          {/* 2. Top-Center Clock & 120 FPS Counter */}
-          <div className="fixed top-2 lg:top-3 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
-            <div
-              ref={clockElRef}
-              className="px-3 py-0.5 lg:px-4 lg:py-1 rounded-full bg-[#0A0C10]/90 border border-white/15 font-mono font-bold text-[11px] lg:text-sm tracking-wider text-white tabular-nums shadow-lg"
-            >
-              ДЕНЬ 1 <span className="text-[#9499A3] font-normal ml-1.5">06:00</span>
-            </div>
-            <div
-              ref={fpsElRef}
-              data-testid="fps-counter"
-              className="mt-0.5 font-mono text-[9px] lg:text-[11px] font-bold text-emerald-400 tabular-nums drop-shadow"
-            >
-              120 FPS · 8.3 ms
-            </div>
-          </div>
-
-          {/* 3. Top-Right Utility Controls (Save Checkpoint, Inventory, Pause/Settings) */}
-          <div className="fixed top-2 right-2 lg:top-3 lg:right-3 flex items-center gap-1.5 lg:gap-2 pointer-events-auto">
+          {/* 2. Top-Right Pure Icon Utility Controls (Save, Inventory/Craft, Pause/Settings — Zero Text!) */}
+          <div className="fixed top-2 right-2 z-30 flex items-center gap-1.5 pointer-events-auto">
             <button
               type="button"
               tabIndex={-1}
@@ -3648,10 +3589,14 @@ export default function App() {
                 engineApiRef.current?.saveToSlot('slot1');
               }}
               data-testid="quick-save-btn"
-              className="px-2.5 py-1 lg:px-3 lg:py-2 rounded-xl bg-[#0A0C10]/90 hover:bg-emerald-500/20 border border-white/15 text-[10px] lg:text-xs font-bold text-emerald-300 shadow-lg cursor-pointer"
-              title="Быстрое сохранение в ключевой точке"
+              aria-label="Сохранить"
+              className="w-9 h-9 rounded-xl bg-[#0A0C10]/85 hover:bg-emerald-500/25 border border-white/15 flex items-center justify-center text-emerald-300 shadow-lg active:scale-90 cursor-pointer"
             >
-              Сохранить
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
             </button>
             <button
               type="button"
@@ -3662,10 +3607,12 @@ export default function App() {
                 setInvOpen(next);
                 engineApiRef.current?.setPausedState(next);
               }}
-              className="px-2.5 py-1 lg:px-3 lg:py-2 rounded-xl bg-[#0A0C10]/90 hover:bg-amber-500/20 border border-white/15 text-[10px] lg:text-xs font-bold text-amber-300 shadow-lg cursor-pointer"
               aria-label="Открыть инвентарь и крафт"
+              className="w-9 h-9 rounded-xl bg-[#0A0C10]/85 hover:bg-amber-500/25 border border-white/15 flex items-center justify-center text-amber-300 shadow-lg active:scale-90 cursor-pointer"
             >
-              Крафт [{uiSnapshot.inv.scrap + uiSnapshot.inv.wood + uiSnapshot.inv.wires}]
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+              </svg>
             </button>
             <button
               type="button"
@@ -3679,23 +3626,19 @@ export default function App() {
               }}
               data-testid="open-settings-btn"
               aria-label="Настройки и пауза"
-              className="w-7 h-7 lg:w-10 lg:h-10 rounded-xl bg-[#0A0C10]/90 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white shadow-lg cursor-pointer"
+              className="w-9 h-9 rounded-xl bg-[#0A0C10]/85 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
             >
-              <svg className="w-4 h-4 lg:w-5 lg:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" />
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="6" y="4" width="4" height="16" rx="1" />
+                <rect x="14" y="4" width="4" height="16" rx="1" />
               </svg>
             </button>
           </div>
 
-          {/* 4. Center Crosshair, Hitmarker & Toast Message */}
-          <div
-            ref={toastElRef}
-            className="fixed top-12 lg:top-20 left-1/2 -translate-x-1/2 px-3 py-1 lg:px-4 lg:py-1.5 rounded-xl bg-black/85 border border-white/15 font-bold text-[11px] lg:text-sm text-amber-300 text-center max-w-[52vw] transition-opacity duration-300 shadow-xl"
-            style={{ opacity: 0 }}
-          />
+          {/* 3. Center Crosshair & Hitmarker (Zero Text Clutter!) */}
+          <div ref={toastElRef} className="hidden" />
           {!isHiddenState && (
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border border-white/80 shadow-[0_0_4px_#000]" />
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full border border-white/80 shadow-[0_0_4px_#000]" />
           )}
           <div
             ref={hitElRef}
@@ -3705,137 +3648,182 @@ export default function App() {
             <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-rose-500" />
           </div>
 
-          {/* 5. Contextual Interact Button (#bUse) */}
+          {/* 4. Contextual Interact Icon Button (Pure Icon, No Text Banner!) */}
           {interactPrompt && (
-            <div className="fixed right-[26vw] top-[42vh] flex flex-col items-center gap-1 pointer-events-auto">
-              <span className="px-2.5 py-0.5 lg:px-3 lg:py-1 rounded-lg bg-black/90 border border-amber-500/45 text-[10px] lg:text-xs font-bold text-amber-300 shadow-lg max-w-[190px] text-center">
-                {interactPrompt}
-              </span>
+            <div className="fixed right-[25vw] top-[44vh] flex items-center justify-center pointer-events-auto">
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.performInteract()}
                 data-testid="interact-btn"
-                className="w-11 h-11 lg:w-14 lg:h-14 rounded-full bg-amber-500/35 hover:bg-amber-500/50 border-2 border-amber-400 flex items-center justify-center text-white shadow-xl active:scale-90 transition-transform cursor-pointer"
+                className="w-12 h-12 rounded-full bg-amber-500/40 hover:bg-amber-500/60 border-2 border-amber-400 flex items-center justify-center text-white shadow-xl active:scale-90 transition-transform cursor-pointer"
                 aria-label={interactPrompt}
               >
-                <span className="font-mono font-bold text-xs">[E]</span>
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" />
+                  <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2" />
+                  <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" />
+                  <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+                </svg>
               </button>
             </div>
           )}
 
-          {/* 6. Bottom-Center Quick Survival & Defense Tool Bar */}
+          {/* 5. Bottom-Center Pure Icon Quick Bar (Food, Water, Torch, Trap, Decoy) */}
           {!isHiddenState && (
-            <div className="fixed bottom-2 lg:bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 lg:gap-2 px-2 py-1 lg:px-3 lg:py-2 rounded-2xl bg-[#0A0C10]/92 border border-white/15 pointer-events-auto shadow-[0_12px_32px_rgba(0,0,0,0.85)]">
+            <div className="fixed bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1 rounded-2xl bg-[#0A0C10]/85 border border-white/15 pointer-events-auto shadow-xl">
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.useConsumable('food')}
-                className="px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center gap-1 text-[10px] lg:text-xs font-bold text-amber-300 cursor-pointer"
-                title="Съесть консервы [G]"
+                aria-label="Съесть консервы"
+                className="relative w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-amber-300 active:scale-90 cursor-pointer"
               >
-                <span>Еда</span>
-                <span className="font-mono text-white tabular-nums">{uiSnapshot.inv.food}</span>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="5" y="4" width="14" height="16" rx="2" />
+                  <line x1="5" y1="9" x2="19" y2="9" />
+                </svg>
+                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                  {uiSnapshot.inv.food}
+                </span>
               </button>
+
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.useConsumable('water')}
-                className="px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center gap-1 text-[10px] lg:text-xs font-bold text-sky-300 cursor-pointer"
-                title="Выпить воду [H]"
+                aria-label="Выпить воду"
+                className="relative w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-sky-300 active:scale-90 cursor-pointer"
               >
-                <span>Вода</span>
-                <span className="font-mono text-white tabular-nums">{uiSnapshot.inv.water}</span>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                </svg>
+                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                  {uiSnapshot.inv.water}
+                </span>
               </button>
+
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.toggleTorch()}
                 data-testid="hud-torch-btn"
-                className={`px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl border flex items-center gap-1 text-[10px] lg:text-xs font-bold cursor-pointer ${
+                aria-label="Фонарик"
+                className={`w-9 h-9 rounded-xl border flex items-center justify-center active:scale-90 cursor-pointer ${
                   uiSnapshot.torchOn
                     ? 'bg-amber-500 text-black border-amber-300'
                     : 'bg-white/5 text-white border-white/10 hover:bg-white/15'
                 }`}
-                title="Фонарик [F]"
               >
-                <span>Фонарь</span>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M8 3h8l-1 5H9zM9 8h6v3l-1 2v8h-4v-8l-1-2z" />
+                </svg>
               </button>
+
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.useDefenseTool('trap')}
                 data-testid="hud-trap-btn"
-                className="px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 flex items-center gap-1 text-[10px] lg:text-xs font-bold text-rose-300 cursor-pointer"
-                title="Поставить медвежий капкан [T]"
+                aria-label="Поставить капкан"
+                className="relative w-9 h-9 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 flex items-center justify-center text-rose-300 active:scale-90 cursor-pointer"
               >
-                <span>Капкан</span>
-                <span className="font-mono text-white tabular-nums">{uiSnapshot.inv.traps}</span>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="8" />
+                  <path d="M8 12l2-2 2 2 2-2 2 2" />
+                </svg>
+                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                  {uiSnapshot.inv.traps}
+                </span>
               </button>
+
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.useDefenseTool('decoy')}
                 data-testid="hud-decoy-btn"
-                className="px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 flex items-center gap-1 text-[10px] lg:text-xs font-bold text-emerald-300 cursor-pointer"
-                title="Бросить шумовой будильник [Z]"
+                aria-label="Бросить приманку"
+                className="relative w-9 h-9 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 flex items-center justify-center text-emerald-300 active:scale-90 cursor-pointer"
               >
-                <span>Приманка</span>
-                <span className="font-mono text-white tabular-nums">{uiSnapshot.inv.decoys}</span>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="13" r="7" />
+                  <polyline points="12 10 12 13 14 15" />
+                  <path d="M5 3L2 6M22 6l-3-3" />
+                </svg>
+                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                  {uiSnapshot.inv.decoys}
+                </span>
               </button>
             </div>
           )}
 
-          {/* Hold Breath Button when Hidden */}
+          {/* Hold Breath Icon Button when Hidden */}
           {isHiddenState && (
             <button
               type="button"
               onPointerDown={() => engineApiRef.current?.setBreathHeld(true)}
               onPointerUp={() => engineApiRef.current?.setBreathHeld(false)}
               onPointerCancel={() => engineApiRef.current?.setBreathHeld(false)}
-              className="fixed bottom-4 lg:bottom-8 left-1/2 -translate-x-1/2 px-5 py-2.5 lg:px-6 lg:py-3.5 rounded-2xl bg-cyan-500/25 hover:bg-cyan-500/35 border-2 border-cyan-400 text-cyan-200 font-bold text-xs lg:text-sm pointer-events-auto shadow-2xl active:scale-95 cursor-pointer"
+              aria-label="Задержать дыхание"
+              className="fixed bottom-4 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full bg-cyan-500/30 hover:bg-cyan-500/45 border-2 border-cyan-400 text-cyan-200 flex items-center justify-center pointer-events-auto shadow-2xl active:scale-90 cursor-pointer"
             >
-              ЗАДЕРЖАТЬ ДЫХАНИЕ [УДЕРЖИВАЙ B]
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2" />
+              </svg>
             </button>
           )}
 
-          {/* 7. Right-Side Combat & Movement Action Cluster (Non-overlapping on 800x360 & Desktop) */}
+          {/* 6. Right-Side Pure Icon Combat & Movement Cluster (Zero Text!) */}
           {!isHiddenState && (
             <>
               <div
                 ref={ammoElRef}
-                className="fixed right-3 bottom-2 lg:right-4 lg:bottom-4 text-right font-mono font-bold text-sm lg:text-xl text-white tabular-nums drop-shadow-[0_2px_8px_#000]"
-              >
-                <small className="block text-[9px] lg:text-xs text-[#9499A3] font-medium">БЕЗ ОРУЖИЯ</small>
-              </div>
+                className="fixed right-3 bottom-2 text-right font-mono font-bold text-sm text-white/90 tabular-nums drop-shadow-[0_2px_6px_#000]"
+              />
 
               <div
-                className="fixed right-2.5 lg:right-4 top-[54px] lg:top-1/2 lg:-translate-y-1/2 flex flex-col items-end gap-1.5 lg:gap-2.5 pointer-events-auto"
+                className="fixed right-2.5 lg:right-4 top-[52px] lg:top-1/2 lg:-translate-y-1/2 flex flex-col items-end gap-2 pointer-events-auto"
                 style={{
                   opacity: cfg.uiOpacity,
                 }}
               >
-                <div className="flex items-center gap-1.5 lg:gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.swapWeapon()}
                     aria-label="Сменить оружие"
-                    className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
                   >
-                    Оруж
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <polyline points="17 1 21 5 17 9" />
+                      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                      <polyline points="7 23 3 19 7 15" />
+                      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                    </svg>
                   </button>
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.reloadWeapon()}
                     aria-label="Перезарядить оружие"
-                    className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
                   >
-                    Перез
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path d="M21 2v6h-6" />
+                      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                      <path d="M3 22v-6h6" />
+                      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                    </svg>
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1.5 lg:gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.toggleAim()}
                     aria-label="Прицелиться"
-                    className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
                   >
-                    Прицел
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <circle cx="12" cy="12" r="8" />
+                      <line x1="12" y1="2" x2="12" y2="6" />
+                      <line x1="12" y1="18" x2="12" y2="22" />
+                      <line x1="2" y1="12" x2="6" y2="12" />
+                      <line x1="18" y1="12" x2="22" y2="12" />
+                    </svg>
                   </button>
                   <button
                     type="button"
@@ -3843,28 +3831,40 @@ export default function App() {
                     onPointerUp={() => engineApiRef.current?.setFireHeld(false)}
                     onPointerCancel={() => engineApiRef.current?.setFireHeld(false)}
                     aria-label="Огонь"
-                    className="w-12 h-12 lg:w-16 lg:h-16 rounded-full bg-rose-600/45 hover:bg-rose-600/65 border-2 border-rose-400 flex items-center justify-center text-white font-bold text-[10px] lg:text-xs shadow-xl active:scale-90 cursor-pointer"
+                    className="w-14 h-14 lg:w-16 lg:h-16 rounded-full bg-rose-600/50 hover:bg-rose-600/70 border-2 border-rose-400 flex items-center justify-center text-white shadow-xl active:scale-90 cursor-pointer"
                   >
-                    ОГОНЬ
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                      <circle cx="12" cy="12" r="5" />
+                      <line x1="12" y1="2" x2="12" y2="5" />
+                      <line x1="12" y1="19" x2="12" y2="22" />
+                      <line x1="2" y1="12" x2="5" y2="12" />
+                      <line x1="19" y1="12" x2="22" y2="12" />
+                    </svg>
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1.5 lg:gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.toggleCrouch()}
                     aria-label="Присесть"
-                    className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
                   >
-                    Присед
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <polyline points="6 9 12 15 18 9" />
+                      <line x1="5" y1="19" x2="19" y2="19" />
+                    </svg>
                   </button>
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.triggerJump()}
                     aria-label="Прыжок"
-                    className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-[#111318]/90 border border-white/20 flex items-center justify-center text-white text-[10px] lg:text-xs font-bold shadow-lg active:scale-90 cursor-pointer"
+                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
                   >
-                    Прыжок
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <polyline points="18 15 12 9 6 15" />
+                      <line x1="5" y1="5" x2="19" y2="5" />
+                    </svg>
                   </button>
                 </div>
               </div>

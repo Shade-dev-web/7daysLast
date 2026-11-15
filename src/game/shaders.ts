@@ -35,28 +35,14 @@ export function createVolumetricBeamMaterial(): THREE.ShaderMaterial {
       varying vec3 vNormal;
       varying vec3 vViewPos;
 
-      float hash(vec2 p) {
-        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-      }
-
-      float noise(vec2 p) {
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        vec2 u = f * f * (3.0 - 2.0 * f);
-        return mix(
-          mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
-          mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-          u.y
-        );
-      }
-
       void main() {
         vec3 viewDir = normalize(-vViewPos);
-        float fresnel = pow(abs(dot(viewDir, vNormal)), 1.65);
-        float fadeLen = smoothstep(0.0, 0.15, vUv.y) * pow(1.0 - vUv.y, 1.45);
-        float dust = 0.78 + 0.22 * noise(vUv * vec2(9.0, 14.0) + vec2(uTime * 0.35, -uTime * 0.6));
+        float fresnel = abs(dot(viewDir, vNormal));
+        fresnel *= fresnel;
+        float fadeLen = smoothstep(0.0, 0.15, vUv.y) * (1.0 - vUv.y) * (1.0 - vUv.y);
+        float dust = 0.84 + 0.16 * sin(vUv.x * 20.0 + uTime * 1.2) * cos(vUv.y * 14.0 - uTime * 2.1);
         float alpha = fresnel * fadeLen * dust * uIntensity;
-        gl_FragColor = vec4(uColor, clamp(alpha, 0.0, 0.45));
+        gl_FragColor = vec4(uColor, clamp(alpha, 0.0, 0.42));
       }
     `,
     transparent: true,
