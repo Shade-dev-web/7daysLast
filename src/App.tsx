@@ -42,6 +42,7 @@ import {
   GameSettings,
   ModMenuState,
 } from './components/PauseSettingsModal';
+import { ApkExportModal } from './components/ApkExportModal';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -170,6 +171,7 @@ export default function App() {
   const [screenMode, setScreenMode] = useState<'title' | 'playing' | 'paused' | 'gameover'>('title');
   const [selDiff, setSelDiff] = useState<DifficultyKey>('normal');
   const [invOpen, setInvOpen] = useState(false);
+  const [apkModalOpen, setApkModalOpen] = useState(false);
   const [pauseTab, setPauseTab] = useState(0);
   const [isPauseFromMenu, setIsPauseFromMenu] = useState(false);
   const [dayBanner, setDayBanner] = useState<{ visible: boolean; day: number; sub: string }>({
@@ -3822,6 +3824,14 @@ export default function App() {
                 >
                   Ключевые точки ({ Object.keys(loadAllCheckpoints()).length })
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setApkModalOpen(true)}
+                  data-testid="open-apk-export-btn"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/45 text-sm font-bold text-emerald-300 cursor-pointer"
+                >
+                  Скачать index.html (APK / GitHub)
+                </button>
               </div>
 
               <div className="text-xs font-mono text-[#9499A3]">
@@ -4011,6 +4021,11 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* =====================================================================
+          STANDALONE SINGLE-FILE APK / GITHUB EXPORT MODAL
+         ===================================================================== */}
+      <ApkExportModal open={apkModalOpen} onClose={() => setApkModalOpen(false)} />
     </main>
   );
 }
