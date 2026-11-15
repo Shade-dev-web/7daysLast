@@ -323,6 +323,23 @@ export function rechargeBattery(
   };
 }
 
+export type SurfaceMaterial = 'wood' | 'concrete' | 'rug';
+
+export function detectSurfaceMaterialAt(x: number, z: number): SurfaceMaterial {
+  // Living room rug or bedroom rug
+  if (
+    (x > 5.2 && x < 8.4 && z > 8.3 && z < 10.5) ||
+    (x > 2.4 && x < 4.0 && z > 2.65 && z < 3.75)
+  ) {
+    return 'rug';
+  }
+  // Kitchen concrete floor (x >= 6, z < 6) or Entrance threshold concrete slab
+  if ((x >= 6.0 && z < 6.0) || (x >= 4.4 && x <= 6.6 && z >= 10.6)) {
+    return 'concrete';
+  }
+  return 'wood';
+}
+
 export function computeNoiseLevel(params: {
   hidden: boolean;
   holdingBreath: boolean;
@@ -333,6 +350,7 @@ export function computeNoiseLevel(params: {
   panic: number;
   burst: number;
   silentMod: boolean;
+  surface?: SurfaceMaterial;
 }): { db: number; zone: 'green' | 'yellow' | 'red' } {
   if (params.silentMod) {
     return { db: 0, zone: 'green' };
@@ -348,6 +366,13 @@ export function computeNoiseLevel(params: {
     base = 10;
   } else {
     base = 30;
+  }
+  if (!params.hidden && params.moving && params.surface) {
+    if (params.surface === 'concrete') {
+      base += 4;
+    } else if (params.surface === 'rug') {
+      base = Math.max(4, base - 6);
+    }
   }
   if (!params.hidden && !params.onGround) {
     base = Math.max(base, 40);

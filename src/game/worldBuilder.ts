@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WeaponKey } from './rules';
+import { WeaponKey, SurfaceMaterial, detectSurfaceMaterialAt } from './rules';
 import { buildProceduralTextures, createGodRayMaterial, enhanceHorrorMaterial } from './shaders';
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -248,7 +248,8 @@ export function buildHorrorHouse(
     world.add(m);
   };
 
-  // Floor & Ceiling
+  // Floor & Ceiling (Wood floorboards base + Concrete slabs in Kitchen & Entrance)
+  const surfaceMeshes: THREE.Mesh[] = [];
   const floorMat = enhanceHorrorMaterial(
     M(0xffffff, 0.76, 0.04, { map: TX.floor, bumpMap: TX.bumpWood, bumpScale: 0.025 })
   );
@@ -256,7 +257,30 @@ export function buildHorrorHouse(
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(5.5, 0, 6);
   floor.receiveShadow = true;
+  floor.userData.surfaceMaterial = 'wood' as SurfaceMaterial;
   world.add(floor);
+  surfaceMeshes.push(floor);
+
+  const concreteMat = enhanceHorrorMaterial(
+    M(0xffffff, 0.84, 0.08, { map: TX.concrete, bumpMap: TX.bumpWood, bumpScale: 0.018 })
+  );
+  // Kitchen concrete floor slab (x: 6..11, z: 0..6)
+  const kitchenFloor = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 6.0), concreteMat);
+  kitchenFloor.rotation.x = -Math.PI / 2;
+  kitchenFloor.position.set(8.5, 0.008, 3.0);
+  kitchenFloor.receiveShadow = true;
+  kitchenFloor.userData.surfaceMaterial = 'concrete' as SurfaceMaterial;
+  world.add(kitchenFloor);
+  surfaceMeshes.push(kitchenFloor);
+
+  // Entrance threshold concrete slab (x: 4.4..6.6, z: 10.6..12.0)
+  const entranceFloor = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), concreteMat);
+  entranceFloor.rotation.x = -Math.PI / 2;
+  entranceFloor.position.set(5.5, 0.008, 11.3);
+  entranceFloor.receiveShadow = true;
+  entranceFloor.userData.surfaceMaterial = 'concrete' as SurfaceMaterial;
+  world.add(entranceFloor);
+  surfaceMeshes.push(entranceFloor);
 
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(11, 12), M(0xffffff, 0.95, 0, { map: TX.ceil }));
   ceil.rotation.x = Math.PI / 2;
@@ -447,11 +471,20 @@ export function buildHorrorHouse(
   regHit(ct);
   addCol(7.35, 9.07, 8.65, 9.73);
 
-  // Rug (offset by 0.02 on Y to prevent Z-fighting)
+  // Rugs (offset on Y to prevent Z-fighting and tagged for surface detection)
   const rug = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.2), M(0xffffff, 1, 0, { map: TX.rug }));
   rug.rotation.x = -Math.PI / 2;
   rug.position.set(6.8, 0.02, 9.4);
+  rug.userData.surfaceMaterial = 'rug' as SurfaceMaterial;
   world.add(rug);
+  surfaceMeshes.push(rug);
+
+  const bedroomRug = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.1), M(0x3a4a5a, 0.95));
+  bedroomRug.rotation.x = -Math.PI / 2;
+  bedroomRug.position.set(3.2, 0.015, 3.2);
+  bedroomRug.userData.surfaceMaterial = 'rug' as SurfaceMaterial;
+  world.add(bedroomRug);
+  surfaceMeshes.push(bedroomRug);
 
   // TV Unit
   const tv = new THREE.Group();
@@ -676,6 +709,29 @@ export function buildHorrorHouse(
   gunProp.sniper.scale.set(0.9, 0.9, 0.9);
   gunProp.sniper.rotation.y = Math.PI / 2;
 
+  const surfaceRay = new THREE.Raycaster(
+    new THREE.Vector3(0, 1.2, 0),
+    new THREE.Vector3(0, -1, 0),
+    0,
+    2.0
+  );
+  const detectSurface = (x: number, z: number): SurfaceMaterial => {
+    surfaceRay.ray.origin.set(x, 1.2, z);
+    const hits = surfaceRay.intersectObjects(surfaceMeshes, false);
+    if (hits.length > 0) {
+      // Pick the topmost floor layer (highest point.y)
+      let topHit = hits[0];
+      for (let i = 1; i < hits.length; i++) {
+        if (hits[i].point.y > topHit.point.y) {
+          topHit = hits[i];
+        }
+      }
+      const mat = topHit.object.userData?.surfaceMaterial as SurfaceMaterial | undefined;
+      if (mat) return mat;
+    }
+    return detectSurfaceMaterialAt(x, z);
+  };
+
   return {
     TX,
     COL,
@@ -693,5 +749,7 @@ export function buildHorrorHouse(
     gunProp,
     caseG,
     radioLed,
+    surfaceMeshes,
+    detectSurface,
   };
 }

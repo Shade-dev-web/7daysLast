@@ -288,6 +288,49 @@ export function buildProceduralTextures(maxAnisotropy: number) {
       5.5,
       6
     ),
+    concrete: canvasTex(
+      512,
+      512,
+      (g, w, h) => {
+        g.fillStyle = '#3a3e44';
+        g.fillRect(0, 0, w, h);
+        // Concrete slab expansion joints & tile grid
+        g.strokeStyle = 'rgba(12,14,18,0.65)';
+        g.lineWidth = 3;
+        for (let x = 0; x <= w; x += 128) {
+          g.beginPath();
+          g.moveTo(x, 0);
+          g.lineTo(x, h);
+          g.stroke();
+        }
+        for (let y = 0; y <= h; y += 128) {
+          g.beginPath();
+          g.moveTo(0, y);
+          g.lineTo(w, y);
+          g.stroke();
+        }
+        // Cracks and damp stains on concrete
+        g.strokeStyle = 'rgba(10,12,15,0.5)';
+        g.lineWidth = 1.5;
+        for (let i = 0; i < 6; i++) {
+          let cx = Math.random() * w;
+          let cy = Math.random() * h;
+          g.beginPath();
+          g.moveTo(cx, cy);
+          for (let k = 0; k < 7; k++) {
+            cx += (Math.random() - 0.5) * 36;
+            cy += (Math.random() - 0.5) * 36;
+            g.lineTo(cx, cy);
+          }
+          g.stroke();
+        }
+        stains(g, w, h, 18, '20,24,28');
+        stains(g, w, h, 4, '70,12,14');
+        speckle(g, w, h, 3600, 0.45);
+      },
+      3,
+      3.5
+    ),
     wallL: wallTex(36, 16, 42, 'stripe'),
     wallB: wallTex(185, 12, 36, 'stripe'),
     wallK: wallTex(46, 22, 50, 'tile'),

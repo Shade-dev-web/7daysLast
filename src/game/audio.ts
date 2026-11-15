@@ -1,4 +1,4 @@
-import { WEAPONS, WeaponKey } from './rules';
+import { WEAPONS, WeaponKey, SurfaceMaterial } from './rules';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -218,10 +218,76 @@ class HorrorAudioEngine {
     }
   }
 
-  step(v: number, creak = false) {
-    this.nburst({ type: 'lowpass', f: 390 + rnd(-40, 40), vol: 0.12 * v, d: 0.09, a: 0.003 });
-    if (creak) {
-      this.tone({ type: 'sawtooth', f: rnd(260, 340), f2: rnd(180, 220), vol: 0.06 * v, d: 0.18, delay: 0.02 });
+  step(v: number, surface: SurfaceMaterial = 'wood', creak = false, pan?: number) {
+    if (surface === 'concrete') {
+      // Crisp, stony heel-tap + grit transient + cold room reflection
+      this.nburst({
+        type: 'bandpass',
+        f: 1680 + rnd(-120, 120),
+        f2: 920,
+        vol: 0.13 * v,
+        d: 0.065,
+        q: 2.2,
+        a: 0.002,
+        pan,
+      });
+      this.nburst({
+        type: 'highpass',
+        f: 2600 + rnd(-180, 180),
+        vol: 0.075 * v,
+        d: 0.04,
+        a: 0.001,
+        pan,
+      });
+      this.nburst({
+        type: 'bandpass',
+        f: 740,
+        vol: 0.045 * v,
+        d: 0.09,
+        q: 1.4,
+        delay: 0.032,
+        pan,
+      });
+    } else if (surface === 'rug') {
+      // Soft, dampened fabric step
+      this.nburst({
+        type: 'lowpass',
+        f: 215 + rnd(-20, 20),
+        vol: 0.065 * v,
+        d: 0.1,
+        a: 0.008,
+        pan,
+      });
+    } else {
+      // Hollow wooden floorboard thump + cavity resonance + optional creak
+      this.nburst({
+        type: 'lowpass',
+        f: 355 + rnd(-35, 35),
+        vol: 0.12 * v,
+        d: 0.095,
+        a: 0.003,
+        pan,
+      });
+      this.tone({
+        type: 'triangle',
+        f: 145 + rnd(-12, 12),
+        f2: 76,
+        vol: 0.075 * v,
+        d: 0.08,
+        a: 0.002,
+        pan,
+      });
+      if (creak) {
+        this.tone({
+          type: 'sawtooth',
+          f: rnd(265, 345),
+          f2: rnd(180, 220),
+          vol: 0.065 * v,
+          d: 0.19,
+          delay: 0.02,
+          pan,
+        });
+      }
     }
   }
 

@@ -8,6 +8,7 @@ import {
   stepFlashlightBattery,
   rechargeBattery,
   computeNoiseLevel,
+  detectSurfaceMaterialAt,
   formatGameClock,
 } from './rules';
 
@@ -106,6 +107,39 @@ test('noise scale computes green, yellow, and red acoustic zones accurately', ()
   });
   assert.equal(sprint.zone, 'red');
   assert.ok(sprint.db >= 60);
+});
+
+test('surface material detection distinguishes wood, concrete, and rug and modulates noise', () => {
+  assert.equal(detectSurfaceMaterialAt(1.8, 1.8), 'wood');
+  assert.equal(detectSurfaceMaterialAt(8.5, 3.0), 'concrete');
+  assert.equal(detectSurfaceMaterialAt(5.5, 11.2), 'concrete');
+  assert.equal(detectSurfaceMaterialAt(6.8, 9.4), 'rug');
+
+  const concreteWalk = computeNoiseLevel({
+    hidden: false,
+    holdingBreath: false,
+    moving: true,
+    running: false,
+    crouching: false,
+    onGround: true,
+    panic: 0,
+    burst: 0,
+    silentMod: false,
+    surface: 'concrete',
+  });
+  const rugWalk = computeNoiseLevel({
+    hidden: false,
+    holdingBreath: false,
+    moving: true,
+    running: false,
+    crouching: false,
+    onGround: true,
+    panic: 0,
+    burst: 0,
+    silentMod: false,
+    surface: 'rug',
+  });
+  assert.ok(concreteWalk.db > rugWalk.db);
 });
 
 test('formatGameClock formats elapsed hours starting from 06:00', () => {

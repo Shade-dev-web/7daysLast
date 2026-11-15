@@ -416,6 +416,7 @@ export default function App() {
       gunProp,
       caseG,
       radioLed,
+      detectSurface,
     } = house;
 
     // Dynamic Horror Lights
@@ -1653,8 +1654,16 @@ export default function App() {
     const animZ = (z: ZombieActor, dt: number) => {
       const sp = z.spd || 0;
       const sn = clamp(sp / 3, 0, 1.2);
+      const prevSin = Math.sin(z.ph);
       z.ph += dt * (1.5 + sp * 2.2);
       const s = Math.sin(z.ph);
+      if (sp > 0.35 && z.pos.z <= 12.2 && ((prevSin < 0 && s >= 0) || (prevSin > 0 && s <= 0))) {
+        const zSurf = detectSurface(z.pos.x, z.pos.z);
+        const zVol = volTo(z) * (z.archetype === 'brute' ? 1.25 : z.archetype === 'crawler' ? 0.55 : 0.8);
+        if (zVol > 0.04) {
+          sfx.step(zVol, zSurf, false, panTo(z));
+        }
+      }
       z.legP[0].rotation.x = s * 0.7 * sn;
       z.legP[1].rotation.x = -s * 0.7 * sn;
       const raise = z.state === 'chase' ? -1.5 : -1.15;
@@ -2652,10 +2661,11 @@ export default function App() {
         }
         P.vy -= 18 * simDt;
         P.y += P.vy * simDt;
+        const curSurface = detectSurface(P.x, P.z);
         if (P.y <= 0) {
           if (!P.onGround && P.vy < -2) {
             P.burst = Math.max(P.burst, 46 * Math.min(1, -P.vy / 6));
-            sfx.step(1.8, true);
+            sfx.step(1.8, curSurface, curSurface === 'wood');
             vib(20);
           }
           P.y = 0;
@@ -2667,10 +2677,18 @@ export default function App() {
           const L = run ? 1.0 : 0.8;
           if (P.stepAcc > L) {
             P.stepAcc = 0;
-            const onRug = P.x > 5.2 && P.x < 8.4 && P.z > 8.3 && P.z < 10.5;
-            const creak = !onRug && Math.random() < 0.22;
+            const creak = curSurface === 'wood' && Math.random() < 0.22;
             if (creak && !P.crouchT) P.burst = Math.max(P.burst, 34);
-            sfx.step(run ? 1.5 : P.crouchT > 0.5 ? 0.35 : onRug ? 0.6 : 1.0, creak);
+            const stepVol = run
+              ? 1.5
+              : P.crouchT > 0.5
+              ? 0.35
+              : curSurface === 'rug'
+              ? 0.6
+              : curSurface === 'concrete'
+              ? 1.15
+              : 1.0;
+            sfx.step(stepVol, curSurface, creak);
           }
         }
       } else {
@@ -2680,6 +2698,7 @@ export default function App() {
       // Compute Acoustic Noise dB & Zone for the Left Scale
       P.burst = Math.max(0, P.burst - 82 * simDt);
       micUpdate(simDt);
+      const activeSurface = detectSurface(P.x, P.z);
       const noiseRes = computeNoiseLevel({
         hidden: hid,
         holdingBreath: holding,
@@ -2690,6 +2709,7 @@ export default function App() {
         panic: P.panic,
         burst: P.burst,
         silentMod: modRef.current.silent,
+        surface: activeSurface,
       });
       P.noise = noiseRes.db;
       P.zone = noiseRes.zone;
