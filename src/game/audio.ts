@@ -1,4 +1,4 @@
-import { WEAPONS, WeaponKey, SurfaceMaterial } from './rules';
+import { WEAPONS, WeaponKey, SurfaceMaterial, describeDynamicAmbience } from './rules';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -7,6 +7,13 @@ class HorrorAudioEngine {
   ctx: AudioContext | null = null;
   master: GainNode | null = null;
   ambientGain: GainNode | null = null;
+  ambWindFilter: BiquadFilterNode | null = null;
+  ambWindGain: GainNode | null = null;
+  ambDroneOscs: OscillatorNode[] = [];
+  ambDroneGains: GainNode[] = [];
+  ambTensionOsc: OscillatorNode | null = null;
+  ambTensionGain: GainNode | null = null;
+  lastAmbEventT = 0;
   lp: BiquadFilterNode | null = null;
   nb: AudioBuffer | null = null;
   distCurve: Float32Array<ArrayBuffer> | null = null;
@@ -183,19 +190,21 @@ class HorrorAudioEngine {
     ambRoot.connect(this.master);
     this.ambientGain = ambRoot;
 
-    // Deep oppressive abyssal wind & structural groan
+    // Layer 1: Dynamic wind / structural resonance filter modulated by Day & Noise
     const s = c.createBufferSource();
     s.buffer = this.nb;
     s.loop = true;
     const f = c.createBiquadFilter();
     f.type = 'bandpass';
     f.frequency.value = 185;
-    f.Q.value = 1.1;
+    f.Q.value = 1.25;
     const g = c.createGain();
     g.gain.value = 0.068;
+    this.ambWindFilter = f;
+    this.ambWindGain = g;
 
     const lfo = c.createOscillator();
-    lfo.frequency.value = 0.07;
+    lfo.frequency.value = 0.08;
     const lg = c.createGain();
     lg.gain.value = 0.042;
     lfo.connect(lg);
@@ -207,21 +216,153 @@ class HorrorAudioEngine {
     s.start();
     lfo.start();
 
-    // Dark sub-bass infrasonic horror drone (31Hz, 31.6Hz, and 46.5Hz tritone)
-    [31, 31.6, 46.5].forEach((fr, idx) => {
+    // Layer 2: Day-evolving 3-voice sub-bass & dissonant pipe/abyssal drone
+    this.ambDroneOscs = [];
+    this.ambDroneGains = [];
+    [42, 42.6, 63].forEach((fr, idx) => {
       const o = c.createOscillator();
       o.type = idx === 2 ? 'triangle' : 'sawtooth';
       o.frequency.value = fr;
       const lp = c.createBiquadFilter();
       lp.type = 'lowpass';
-      lp.frequency.value = idx === 2 ? 95 : 68;
+      lp.frequency.value = idx === 2 ? 110 : 72;
       const gg = c.createGain();
       gg.gain.value = idx === 2 ? 0.028 : 0.058;
       o.connect(lp);
       lp.connect(gg);
       gg.connect(ambRoot);
       o.start();
+      this.ambDroneOscs.push(o);
+      this.ambDroneGains.push(gg);
     });
+
+    // Layer 3: Noise-reactive high-tension dissonance shimmer (swells when player makes noise)
+    const tensOsc = c.createOscillator();
+    tensOsc.type = 'sawtooth';
+    tensOsc.frequency.value = 195;
+    const tensBp = c.createBiquadFilter();
+    tensBp.type = 'bandpass';
+    tensBp.frequency.value = 280;
+    tensBp.Q.value = 3.2;
+    const tensGain = c.createGain();
+    tensGain.gain.value = 0.008;
+    tensOsc.connect(tensBp);
+    tensBp.connect(tensGain);
+    tensGain.connect(ambRoot);
+    tensOsc.start();
+    this.ambTensionOsc = tensOsc;
+    this.ambTensionGain = tensGain;
+  }
+
+  /**
+   * Dynamically evolves the horror soundscape according to the current Day (1..7)
+   * and real-time Noise level (0..100) + Panic (0..1).
+   */
+  updateDynamicAmbience(day: number, noiseDb: number, panic: number) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const prof = describeDynamicAmbience(day, noiseDb, panic);
+
+    if (this.ambWindFilter && this.ambWindGain) {
+      this.ambWindFilter.frequency.setTargetAtTime(prof.windCutoffHz, t, 0.25);
+      const targetWindGain = 0.055 + (day - 1) * 0.008 + (noiseDb / 100) * 0.065;
+      this.ambWindGain.gain.setTargetAtTime(targetWindGain, t, 0.25);
+    }
+
+    for (let i = 0; i < this.ambDroneOscs.length; i++) {
+      const targetHz = prof.baseDroneHz[i] || 42;
+      this.ambDroneOscs[i].frequency.setTargetAtTime(targetHz, t, 0.4);
+      if (this.ambDroneGains[i]) {
+        const baseG = i === 2 ? 0.028 : 0.056;
+        const boost = (day - 1) * 0.005 + (noiseDb >= 60 ? 0.032 : noiseDb >= 30 ? 0.014 : 0);
+        this.ambDroneGains[i].gain.setTargetAtTime(baseG + boost, t, 0.35);
+      }
+    }
+
+    if (this.ambTensionOsc && this.ambTensionGain) {
+      this.ambTensionOsc.frequency.setTargetAtTime(prof.tensionFreqHz, t, 0.2);
+      this.ambTensionGain.gain.setTargetAtTime(prof.tensionGain, t, 0.2);
+    }
+
+    // Trigger procedural one-shot environmental horror textures based on Day & Noise
+    const cooldown = noiseDb >= 60 ? 2.4 : noiseDb >= 30 ? 4.2 : Math.max(4.5, 9.5 - day * 0.7);
+    if (t - this.lastAmbEventT > cooldown) {
+      this.lastAmbEventT = t;
+      const pan = rnd(-0.85, 0.85);
+      if (noiseDb >= 60) {
+        // Red noise zone: structural vibration + dissonant metallic feedback ring + distant monster answer
+        this.tone({
+          type: 'sawtooth',
+          f: 62 + day * 4,
+          f2: 31,
+          vol: 0.16 * this.ambientVol,
+          d: 0.95,
+          a: 0.06,
+          pan,
+        });
+        this.tone({
+          type: 'triangle',
+          f: 520 + rnd(-40, 60),
+          f2: 485,
+          vol: 0.07 * this.ambientVol,
+          d: 0.65,
+          a: 0.05,
+          pan: -pan,
+        });
+      } else if (noiseDb >= 30 || day >= 4) {
+        // Yellow noise zone or late days: metallic pipe groan / eerie floorboard response
+        this.tone({
+          type: 'triangle',
+          f: 145 + rnd(-25, 35),
+          f2: 88,
+          vol: 0.085 * this.ambientVol,
+          d: 0.75,
+          a: 0.08,
+          pan,
+        });
+        this.nburst({
+          type: 'bandpass',
+          f: 420 + day * 45,
+          f2: 210,
+          vol: 0.055 * this.ambientVol,
+          d: 0.55,
+          q: 3.5,
+          a: 0.04,
+          pan,
+        });
+      } else {
+        // Quiet Day 1-3: subtle wooden house settling creak
+        this.tone({
+          type: 'sine',
+          f: 210 + rnd(-30, 30),
+          f2: 135,
+          vol: 0.045 * this.ambientVol,
+          d: 0.38,
+          a: 0.03,
+          pan,
+        });
+      }
+    }
+  }
+
+  thunderStrike() {
+    this.nburst({ type: 'lowpass', f: 340, f2: 48, vol: 0.68, d: 2.2, q: 0.8, a: 0.02 });
+    this.tone({ type: 'sawtooth', f: 58, f2: 24, vol: 0.52, d: 1.8, a: 0.03 });
+  }
+
+  fuseBlow() {
+    this.nburst({ type: 'bandpass', f: 2400, f2: 620, vol: 0.65, d: 0.28, q: 2.2, a: 0.002 });
+    this.tone({ type: 'sawtooth', f: 120, f2: 38, vol: 0.55, d: 0.45, a: 0.005 });
+  }
+
+  fuseReset() {
+    this.tone({ type: 'triangle', f: 180, f2: 420, vol: 0.35, d: 0.16, a: 0.004 });
+    this.tone({ type: 'sine', f: 520, f2: 680, vol: 0.22, d: 0.12, delay: 0.08 });
+  }
+
+  sonarPing() {
+    this.tone({ type: 'sine', f: 1380, f2: 1320, vol: 0.26, d: 0.22, a: 0.004 });
+    this.tone({ type: 'sine', f: 1380, f2: 1280, vol: 0.12, d: 0.35, delay: 0.16 });
   }
 
   shot(k: WeaponKey) {

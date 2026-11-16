@@ -25,6 +25,7 @@ export interface LeftScaleRefs {
   pantBadge?: HTMLSpanElement | null;
   screenPulseOverlay?: HTMLDivElement | null;
   breathMistOverlay?: HTMLDivElement | null;
+  ambienceVal?: HTMLSpanElement | null;
   doorBar: HTMLDivElement | null;
   doorVal: HTMLSpanElement | null;
 }
@@ -339,6 +340,31 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
             height={22}
             className="w-full h-[22px] rounded bg-[#030508] border border-white/10 block"
           />
+
+          {/* Dynamic Ambient Soundscape Status (Day + Noise Reactive) */}
+          <div
+            data-testid="dynamic-ambience-hud"
+            className="flex items-center justify-between gap-1 pt-0.5 border-t border-white/10"
+          >
+            <svg
+              className="w-2.5 h-2.5 text-cyan-400 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+            >
+              <path d="M2 12h2M6 8v8M10 4v16M14 9v6M18 6v12M22 11v2" />
+            </svg>
+            <span
+              ref={(el) => {
+                scaleRefs.current.ambienceVal = el;
+              }}
+              data-testid="dynamic-ambience-label"
+              className="font-mono text-[7.5px] font-bold text-emerald-300 truncate leading-none tracking-tight"
+            >
+              Д1 · СКРИП ДОМА · ТИШИНА
+            </span>
+          </div>
         </div>
 
         {/* Bottom Row: UV Spectrum Toggle + Inventory & Crafting Button */}

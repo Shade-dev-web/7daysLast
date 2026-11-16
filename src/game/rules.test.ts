@@ -12,7 +12,26 @@ import {
   computeNoiseLevel,
   detectSurfaceMaterialAt,
   formatGameClock,
+  describeDynamicAmbience,
 } from './rules';
+
+test('dynamic ambient soundscape evolves by day number and noise level', () => {
+  const day1Quiet = describeDynamicAmbience(1, 8, 0);
+  const day4Medium = describeDynamicAmbience(4, 42, 0.2);
+  const day7Loud = describeDynamicAmbience(7, 85, 0.8);
+
+  assert.equal(day1Quiet.dayStage, 1);
+  assert.equal(day1Quiet.colorZone, 'emerald');
+  assert.equal(day4Medium.dayStage, 2);
+  assert.equal(day4Medium.colorZone, 'amber');
+  assert.equal(day7Loud.dayStage, 3);
+  assert.equal(day7Loud.colorZone, 'rose');
+
+  assert.ok(day7Loud.windCutoffHz > day4Medium.windCutoffHz);
+  assert.ok(day4Medium.windCutoffHz > day1Quiet.windCutoffHz);
+  assert.ok(day7Loud.tensionGain > day1Quiet.tensionGain);
+  assert.ok(day1Quiet.baseDroneHz[0] > day7Loud.baseDroneHz[0]); // deeper sub-bass on Day 7
+});
 
 test('initial inventory has expected survival items and crafting materials', () => {
   const inv = createInitialInventory('normal');

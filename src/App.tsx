@@ -15,6 +15,7 @@ import {
   getDayMaxBatteryCapacity,
   computeNoiseLevel,
   formatGameClock,
+  describeDynamicAmbience,
   CheckpointData,
 } from './game/rules';
 import { sfx } from './game/audio';
@@ -2667,7 +2668,29 @@ export default function App() {
         sr.breathMistOverlay.style.opacity = mistOp.toFixed(2);
       }
 
+      if (sr.ambienceVal) {
+        const ambProf = describeDynamicAmbience(S.day, P.noise, P.panic);
+        sr.ambienceVal.textContent = ambProf.hudSummary;
+        sr.ambienceVal.style.color =
+          ambProf.colorZone === 'rose'
+            ? '#fda4af'
+            : ambProf.colorZone === 'amber'
+            ? '#fcd34d'
+            : '#6ee7b7';
+      }
+
       if (sr.doorBar) sr.doorBar.style.width = `${clamp(S.doorHp, 0, 100)}%`;
+
+      if (sr.ambienceVal) {
+        const ambProf = describeDynamicAmbience(S.day, P.noise, P.panic);
+        sr.ambienceVal.textContent = ambProf.hudSummary;
+        sr.ambienceVal.style.color =
+          ambProf.colorZone === 'rose'
+            ? '#fda4af'
+            : ambProf.colorZone === 'amber'
+            ? '#fcd34d'
+            : '#6ee7b7';
+      }
 
       if (ammoElRef.current) {
         if (S.cur) {
@@ -3000,6 +3023,7 @@ export default function App() {
       });
       P.noise = noiseRes.db;
       P.zone = noiseRes.zone;
+      sfx.updateDynamicAmbience(S.day, P.noise, P.panic);
 
       // Heartbeat & Shortness of Breath ("Отдышка") Audio-Visual Sync
       beatT -= simDt;

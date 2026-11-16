@@ -472,3 +472,77 @@ export function formatGameClock(tHours: number): string {
   const mm = Math.floor((h - hh) * 60);
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
+
+export interface DynamicAmbienceProfile {
+  dayStage: 1 | 2 | 3;
+  stageLabel: string;
+  noiseLabel: string;
+  hudSummary: string;
+  baseDroneHz: [number, number, number];
+  windCutoffHz: number;
+  tensionGain: number;
+  tensionFreqHz: number;
+  colorZone: 'emerald' | 'amber' | 'rose';
+}
+
+/**
+ * Computes the dynamic ambient soundscape parameters based on the current day (1..7)
+ * and real-time player noise level (0..100) + panic (0..1).
+ */
+export function describeDynamicAmbience(
+  day: number,
+  noiseDb: number,
+  panic = 0
+): DynamicAmbienceProfile {
+  const clampedDay = Math.max(1, Math.min(7, Math.round(day || 1)));
+  const clampedNoise = Math.max(0, Math.min(100, noiseDb || 0));
+  const clampedPanic = Math.max(0, Math.min(1, panic || 0));
+
+  let dayStage: 1 | 2 | 3 = 1;
+  let stageLabel = 'СКРИП ДОМА';
+  let baseDroneHz: [number, number, number] = [42, 42.6, 63];
+
+  if (clampedDay >= 5) {
+    dayStage = 3;
+    stageLabel = 'ГУЛ БЕЗДНЫ';
+    baseDroneHz = [28, 39.6, 55.8]; // Deep abyssal sub-bass + tritone dissonance
+  } else if (clampedDay >= 3) {
+    dayStage = 2;
+    stageLabel = 'ГУЛ ТРУБ';
+    baseDroneHz = [35, 52.5, 74.2]; // Metallic pipe resonance
+  }
+
+  const effectiveTension = Math.min(
+    1,
+    Math.max(clampedNoise / 100, clampedPanic * 0.85) + (clampedDay - 1) * 0.04
+  );
+
+  let noiseLabel = 'ТИШИНА';
+  let colorZone: 'emerald' | 'amber' | 'rose' = 'emerald';
+  if (clampedNoise >= 60 || clampedPanic >= 0.65) {
+    noiseLabel = 'ОХОТА!';
+    colorZone = 'rose';
+  } else if (clampedNoise >= 30 || clampedPanic >= 0.25) {
+    noiseLabel = 'ЭХО ШУМА';
+    colorZone = 'amber';
+  }
+
+  const windCutoffHz = Math.round(
+    145 + (clampedDay - 1) * 22 + clampedNoise * 5.2 + clampedPanic * 180
+  );
+  const tensionGain = Number((0.008 + effectiveTension * 0.085).toFixed(4));
+  const tensionFreqHz = Math.round(165 + dayStage * 38 + clampedNoise * 2.4);
+
+  return {
+    dayStage,
+    stageLabel,
+    noiseLabel,
+    hudSummary: `Д${clampedDay} · ${stageLabel} · ${noiseLabel}`,
+    baseDroneHz,
+    windCutoffHz,
+    tensionGain,
+    tensionFreqHz,
+    colorZone,
+  };
+}
+

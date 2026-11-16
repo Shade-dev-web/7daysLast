@@ -202,6 +202,10 @@ body.editing #useLbl{display:none!important}
         <u id="pantBadgeTxt" style="text-decoration:none;padding:.2vh .55vh;border-radius:.6vh;font:800 1.25vh monospace;background:rgba(16,185,129,.18);border:1px solid rgba(16,185,129,.4);color:#6ee7b7">НОРМА</u>
       </div>
       <canvas id="ecgCanvas" width="120" height="26" style="width:100%;height:2.8vh;background:#020407;border-radius:.5vh;border:1px solid rgba(255,255,255,.12);display:block"></canvas>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:.4vh;padding-top:.25vh;border-top:1px solid rgba(255,255,255,.12)">
+        <svg viewBox="0 0 24 24" style="width:1.6vh;height:1.6vh;stroke:#22d3ee;stroke-width:2.4;fill:none;flex-shrink:0"><path d="M2 12h2M6 8v8M10 4v16M14 9v6M18 6v12M22 11v2"/></svg>
+        <b id="ambienceStatusTxt" style="font:700 1.05vh monospace;color:#6ee7b7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Д1 · СКРИП ДОМА · ТИШИНА</b>
+      </div>
     </div>
   </div>
   <div id="screenPulseOv" style="position:fixed;inset:0;pointer-events:none;z-index:11;opacity:0;transition:opacity 70ms;background:radial-gradient(ellipse at center,rgba(225,29,72,0) 40%,rgba(225,29,72,.52) 85%,rgba(136,19,55,.85) 100%)"></div>
@@ -231,6 +235,8 @@ body.editing #useLbl{display:none!important}
   <button class="b" id="bFlare" style="--sz:9vh;left:29vw;bottom:3.5vh;border-color:#f43f5e!important"><svg viewBox="0 0 24 24"><path d="M12 2c2 4 5 6 5 11a5 5 0 1 1-10 0c0-5 3-7 5-11z"/></svg><span class="b-lbl" id="lblFlare">ФАКЕЛ x2</span></button>
   <button class="b" id="bTrap" style="--sz:9vh;left:67.5vw;bottom:3.5vh;border-color:#f59e0b!important"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M8 12h8M12 8v8"/></svg><span class="b-lbl" id="lblTrap">КАПКАН x2</span></button>
   <button class="b" id="bAdren" style="--sz:9vh;left:74.5vw;bottom:3.5vh;border-color:#22d3ee!important"><svg viewBox="0 0 24 24"><path d="M18 3l3 3-10 10-3-3L18 3zM6 15l-3 6 6-3"/></svg><span class="b-lbl" id="lblAdren">АДРЕН x2</span></button>
+  <button class="b" id="bSensor" style="--sz:9vh;left:15vw;bottom:3.5vh;border-color:#38bdf8!important"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M4.9 4.9a10 10 0 0 1 14.2 0M7.8 7.8a6 6 0 0 1 8.4 0"/></svg><span class="b-lbl" id="lblSensor">СЕНСОР x2</span></button>
+  <button class="b" id="bFuse" style="--sz:9vh;left:8vw;bottom:3.5vh;border-color:#fde047!important"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/></svg><span class="b-lbl" id="lblFuse">ЩИТОК [G]</span></button>
 </div>
 <div class="fx" id="dark" style="opacity:1"></div>
 
@@ -1765,8 +1771,18 @@ $('#splash').addEventListener('pointerdown',()=>{afterSplash();});
 
   let adrenLeft = 2;
   let adrenBoostT = 0;
+  let sensorsLeft = 2;
+  let espSensorTimer = 0;
+  let houseFusesBlown = false;
+  let ambPulseCd = 0;
+  const worldSensors = [];
   const bAdrenEl = document.getElementById('bAdren');
   const lblAdren = document.getElementById('lblAdren');
+  const bSensorEl = document.getElementById('bSensor');
+  const lblSensor = document.getElementById('lblSensor');
+  const bFuseEl = document.getElementById('bFuse');
+  const lblFuse = document.getElementById('lblFuse');
+  const ambienceStatusTxt = document.getElementById('ambienceStatusTxt');
   const pulseSensorHud = document.getElementById('pulseSensorHud');
   const pulseHeartSvg = document.getElementById('pulseHeartSvg');
   const pulseBpmTxt = document.getElementById('pulseBpmTxt');
@@ -1790,11 +1806,103 @@ $('#splash').addEventListener('pointerdown',()=>{afterSplash();});
     toast('АДРЕНАЛИН ВВЕДЁН! Отдышка снята, 100% дыхания и ускорение на 12 сек!', 2600);
   }
 
+  function placeMotionSensor() {
+    if (S.mode !== 'play' || S.hidden) return;
+    if (sensorsLeft <= 0) { toast('Нет датчиков движения! Пополните в Оружейке.', 1800); return; }
+    sensorsLeft--;
+    if (lblSensor) lblSensor.textContent = 'СЕНСОР x' + sensorsLeft;
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+    const sx = P.x + fx * 1.0, sz = P.z + fz * 1.0;
+    const sg = new THREE.Group();
+    const baseM = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.06, 12), new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.3 }));
+    baseM.position.y = 0.03; sg.add(baseM);
+    const beaconM = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+    beaconM.position.y = 0.08; sg.add(beaconM);
+    const sLight = new THREE.PointLight(0x38bdf8, 1.4, 5.5, 1.6);
+    sLight.position.set(0, 0.2, 0); sg.add(sLight);
+    sg.position.set(sx, 0, sz);
+    scene.add(sg);
+    worldSensors.push({ g: sg, x: sx, z: sz, cd: 0 });
+    tone({ type: 'sine', f: 1380, f2: 1280, vol: 0.28, d: 0.22 });
+    toast('Лазерный датчик движения установлен! Подсветит монстра сквозь стены при приближении.', 2600);
+  }
+
+  function toggleOrResetFuses() {
+    if (S.mode !== 'play' || S.paused) return;
+    if (P.z > 12.2) {
+      toast('Электрощиток находится внутри дома!', 1800);
+      return;
+    }
+    if (houseFusesBlown) {
+      houseFusesBlown = false;
+      if (lblFuse) lblFuse.textContent = 'ЩИТОК ОК';
+      tone({ type: 'triangle', f: 180, f2: 460, vol: 0.38, d: 0.18 });
+      P.panic = Math.max(0, (P.panic || 0) - 0.35);
+      toast('ПРОБКИ ВКЛЮЧЕНЫ! Свет в доме восстановлен, уровень паники снижен!', 2600);
+    } else {
+      tone({ type: 'sine', f: 420, f2: 520, vol: 0.2, d: 0.12 });
+      P.panic = Math.max(0, (P.panic || 0) - 0.12);
+      toast('Электрощиток исправен: напряжение в доме стабильно.', 1800);
+    }
+  }
+
   // Synthesize realistic shortness-of-breath panting ("отдышка")
   function playPantSound(intensity) {
     const pv = Math.max(0.1, Math.min(1, intensity));
     nburst({ type: 'bandpass', f: 940, f2: 1290, vol: 0.22 * pv, d: 0.22, a: 0.03, q: 2.3 });
     nburst({ type: 'bandpass', f: 620, f2: 330, vol: 0.28 * pv, d: 0.34, a: 0.04, q: 1.8, delay: 0.26 });
+  }
+
+  // Dynamic Ambient Soundscape System: changes according to Current Day (1..7) and Noise Level (0..100)
+  function stepDynamicAmbience(dt) {
+    if (S.mode !== 'play' || S.paused) return;
+    const day = Math.max(1, Math.min(7, S.day || 1));
+    const noiseVal = Math.max(0, Math.min(100, P.noise || 0));
+    const panicVal = Math.max(0, Math.min(1, P.panic || 0));
+
+    let stageLabel = 'СКРИП ДОМА';
+    let baseFreq = 42;
+    if (day >= 5) {
+      stageLabel = 'ГУЛ БЕЗДНЫ';
+      baseFreq = 28;
+    } else if (day >= 3) {
+      stageLabel = 'ГУЛ ТРУБ';
+      baseFreq = 35;
+    }
+
+    let noiseState = 'ТИШИНА';
+    let txtCol = '#6ee7b7';
+    if (noiseVal >= 60 || panicVal >= 0.65) {
+      noiseState = 'ОХОТА!';
+      txtCol = '#fda4af';
+    } else if (noiseVal >= 30 || panicVal >= 0.25) {
+      noiseState = 'ЭХО ШУМА';
+      txtCol = '#fcd34d';
+    }
+
+    if (ambienceStatusTxt) {
+      ambienceStatusTxt.textContent = 'Д' + day + ' · ' + stageLabel + ' · ' + noiseState;
+      ambienceStatusTxt.style.color = txtCol;
+    }
+
+    ambPulseCd -= dt;
+    if (ambPulseCd <= 0) {
+      const interval = noiseVal >= 60 ? 1.8 : noiseVal >= 30 ? 3.2 : Math.max(3.6, 6.8 - day * 0.45);
+      ambPulseCd = interval;
+      if (noiseVal >= 60) {
+        // High noise: oppressive sub-bass throb + metallic shrieking resonance
+        tone({ type: 'sawtooth', f: baseFreq + 18, f2: baseFreq * 0.8, vol: 0.18, d: 1.1, a: 0.06 });
+        tone({ type: 'triangle', f: 480 + day * 25, f2: 430, vol: 0.08, d: 0.75, a: 0.05 });
+        nburst({ type: 'bandpass', f: 680 + noiseVal * 4, f2: 260, vol: 0.11, d: 0.8, q: 2.8 });
+      } else if (noiseVal >= 30 || day >= 3) {
+        // Medium noise or Day 3+: metallic pipe hum + eerie wood creak response
+        tone({ type: 'triangle', f: baseFreq * 2, f2: baseFreq * 1.4, vol: 0.11, d: 1.3, a: 0.1 });
+        nburst({ type: 'bandpass', f: 320 + day * 40 + noiseVal * 2, f2: 190, vol: 0.065, d: 0.65, q: 3.2 });
+      } else {
+        // Quiet Day 1-2: deep old-house room tone + settling floorboard creak
+        tone({ type: 'sine', f: baseFreq * 3.2, f2: baseFreq * 2.1, vol: 0.055, d: 0.55, a: 0.04 });
+      }
+    }
   }
 
   // 3D Blood pool trails left by wounded monsters
@@ -1807,6 +1915,8 @@ $('#splash').addEventListener('pointerdown',()=>{afterSplash();});
   if (bFlareEl) bFlareEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); dropCrimsonFlare(); });
   if (bTrapEl) bTrapEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); placeBearTrap(); });
   if (bAdrenEl) bAdrenEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); useAdrenalineInjector(); });
+  if (bSensorEl) bSensorEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); placeMotionSensor(); });
+  if (bFuseEl) bFuseEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); toggleOrResetFuses(); });
 
   window.addEventListener('keydown', (e) => {
     if (S.mode !== 'play' || S.paused) return;
@@ -1815,6 +1925,8 @@ $('#splash').addEventListener('pointerdown',()=>{afterSplash();});
     if (e.code === 'KeyX') dropCrimsonFlare();
     if (e.code === 'KeyT') placeBearTrap();
     if (e.code === 'KeyJ') useAdrenalineInjector();
+    if (e.code === 'KeyV') placeMotionSensor();
+    if (e.code === 'KeyG') toggleOrResetFuses();
   });
 
   // Frame-accurate animation for 3D First-Person Legs + Real-Time ECG Pulse Sensor & Panting ("Отдышка")
@@ -2056,9 +2168,46 @@ $('#splash').addEventListener('pointerdown',()=>{afterSplash();});
         }
       }
     }
+
+    // Update Laser/Sonar Motion Sensors & 3D Wallhack ESP highlight
+    if (espSensorTimer > 0) {
+      espSensorTimer -= 0.1;
+      MOD.esp = true;
+      if (espSensorTimer <= 0) MOD.esp = false;
+    }
+    for (let i = worldSensors.length - 1; i >= 0; i--) {
+      const sn = worldSensors[i];
+      if (sn.cd > 0) sn.cd -= 0.1;
+      for (const z of zs) {
+        if (!z.dead && sn.cd <= 0 && Math.hypot(z.pos.x - sn.x, z.pos.z - sn.z) < 5.5) {
+          sn.cd = 8.0;
+          espSensorTimer = 7.0;
+          MOD.esp = true;
+          tone({ type: 'sine', f: 1420, f2: 1280, vol: 0.32, d: 0.25 });
+          toast('ПИНГ ДАТЧИКА! Гигантский монстр засечён (3D-силуэт сквозь стены на 7 сек)!', 2800);
+          break;
+        }
+      }
+    }
+
+    // Scheduled rain thunderstorm lightning & house fusebox overload chance
+    if (S.rain && Math.random() < 0.012) {
+      nburst({ type: 'lowpass', f: 340, f2: 48, vol: 0.55, d: 1.8, q: 0.8 });
+      tone({ type: 'sawtooth', f: 56, f2: 24, vol: 0.45, d: 1.5 });
+      if (!houseFusesBlown && Math.random() < 0.35) {
+        houseFusesBlown = true;
+        if (lblFuse) lblFuse.textContent = 'ПРОБКИ [G]!';
+        P.panic = Math.min(1, (P.panic || 0) + 0.25);
+        toast('ГРОЗА ВЫБИЛА ПРОБКИ! Нажмите ЩИТОК [G] в доме, чтобы вернуть свет!', 3200);
+      }
+    }
+
+    // Step Dynamic Ambient Soundscape (Day 1..7 + Noise Level)
+    stepDynamicAmbience(0.1);
   }, 100);
 
   // Offline 1-click generator for 21+ MB APK-ready index.html (high-entropy UTF-8 so ZIP/DEFLATE in APK keeps it >=21.5 MB)
+  // NOTE: Uses '<' + '/script>' concatenation so HTML parser NEVER prematurely closes <script id="main">!
   const dlBtn = $('#mDl21Mb');
   if (dlBtn) {
     dlBtn.addEventListener('pointerdown', (e) => {
@@ -2089,13 +2238,23 @@ $('#splash').addEventListener('pointerdown',()=>{afterSplash();});
             }
           }
           while (i < targetBytes) buf[i++] = 65;
-          let rawDoc = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-          rawDoc = rawDoc.replace(/<script id="arnex-hd-asset-pack"[\s\S]*?<\/script>/g, '');
-          const splitIdx = rawDoc.lastIndexOf('</body>');
+          const nl = String.fromCharCode(10);
+          const closeScr = '<' + '/script>';
+          const closeBody = '<' + '/body>';
+          const closeHtml = '<' + '/html>';
+          let rawDoc = '<!DOCTYPE html>' + nl + document.documentElement.outerHTML;
+          const packStart = rawDoc.indexOf('<script id="arnex-hd-asset-pack"');
+          if (packStart !== -1) {
+            const packEnd = rawDoc.indexOf(closeScr, packStart);
+            if (packEnd !== -1) {
+              rawDoc = rawDoc.slice(0, packStart) + rawDoc.slice(packEnd + closeScr.length);
+            }
+          }
+          const splitIdx = rawDoc.lastIndexOf(closeBody);
           const prefix = splitIdx !== -1 ? rawDoc.slice(0, splitIdx) : rawDoc;
-          const suffix = splitIdx !== -1 ? rawDoc.slice(splitIdx) : '</body></html>';
-          const hdr = '\n<!-- ARNEX WORK v2.3.1 HIGH-ENTROPY 22MB APK ASSET PACK -->\n<script id="arnex-hd-asset-pack" type="text/plain" data-version="2.3.1">\n';
-          const ftr = '\n</script>\n';
+          const suffix = splitIdx !== -1 ? rawDoc.slice(splitIdx) : closeBody + closeHtml;
+          const hdr = nl + '<!-- ARNEX WORK v2.3.1 HIGH-ENTROPY 22MB APK ASSET PACK -->' + nl + '<script id="arnex-hd-asset-pack" type="text/plain" data-version="2.3.1">' + nl;
+          const ftr = nl + closeScr + nl;
           const blob = new Blob([prefix, hdr, buf, ftr, suffix], { type: 'text/html;charset=utf-8' });
           const file = new File([blob], 'index.html', { type: 'text/html' });
           if (navigator.canShare && navigator.canShare({ files: [file] }) && (location.hostname === 'appassets.androidplatform.net' || /Android/i.test(navigator.userAgent))) {
