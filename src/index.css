@@ -1,11 +1,9 @@
 @import "tailwindcss";
 
 * {
-  box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none;
   user-select: none;
-  touch-action: none;
+  -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
 
@@ -16,17 +14,124 @@ body,
   padding: 0;
   width: 100%;
   height: 100%;
-  background: #07080a;
   overflow: hidden;
   overscroll-behavior: none;
-  -webkit-font-smoothing: antialiased;
+  touch-action: none;
+  background-color: #050608;
+}
+
+canvas {
+  touch-action: none;
+  display: block;
+}
+
+/* Visible High-Contrast Scrollbar for Settings & Inventory Modals */
+.custom-scrollbar {
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: auto;
+  scrollbar-color: #f59e0b rgba(255, 255, 255, 0.08);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #f59e0b, #e11d48);
+  border-radius: 9999px;
+  border: 2px solid #0b0d12;
 }
 
 input[type="range"] {
-  touch-action: pan-x;
+  touch-action: pan-x !important;
 }
 
-.overflow-y-auto {
-  touch-action: pan-y;
-  -webkit-overflow-scrolling: touch;
+/* High-frequency red opacity pulse when battery charge is below 10% */
+@keyframes batteryCriticalPulse {
+  0%,
+  100% {
+    opacity: 1;
+    background-color: #f43f5e;
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.9);
+  }
+  50% {
+    opacity: 0.34;
+    background-color: #e11d48;
+    box-shadow: 0 0 3px rgba(244, 63, 94, 0.35);
+  }
 }
+
+.battery-critical-pulse {
+  background-color: #f43f5e !important;
+  animation: batteryCriticalPulse 0.22s ease-in-out infinite !important;
+}
+
+/* Animated ARNEX WORK ПРЕДСТАВЛЯЕТ Intro Keyframes */
+@keyframes arnexTitleReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.84) translateY(14px);
+    letter-spacing: 0.55em;
+    filter: blur(8px);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.03) translateY(0);
+    letter-spacing: 0.24em;
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    letter-spacing: 0.2em;
+    filter: blur(0px);
+  }
+}
+
+@keyframes arnexSubReveal {
+  0%,
+  25% {
+    opacity: 0;
+    transform: translateY(10px);
+    letter-spacing: 0.7em;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: 0.42em;
+  }
+}
+
+@keyframes arnexSweepLine {
+  0% {
+    transform: translateX(-110%);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(110%);
+    opacity: 0;
+  }
+}
+
+.arnex-title-anim {
+  animation: arnexTitleReveal 1.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.arnex-sub-anim {
+  animation: arnexSubReveal 1.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.arnex-sweep-anim {
+  animation: arnexSweepLine 1.8s ease-in-out infinite;
+}
+

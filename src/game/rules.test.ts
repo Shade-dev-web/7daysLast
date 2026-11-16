@@ -7,6 +7,8 @@ import {
   applyCraft,
   stepFlashlightBattery,
   rechargeBattery,
+  getDayMaxBatteryCapacity,
+  getDayBatteryRechargeGain,
   computeNoiseLevel,
   detectSurfaceMaterialAt,
   formatGameClock,
@@ -16,11 +18,13 @@ test('initial inventory has expected survival items and crafting materials', () 
   const inv = createInitialInventory('normal');
   assert.equal(inv.batteries, 2);
   assert.equal(inv.traps, 1);
+  assert.equal(inv.flares, 1);
+  assert.equal(inv.adrenaline, 1);
   assert.ok(inv.scrap >= 3);
   assert.ok(inv.wires >= 2);
 });
 
-test('crafting bear trap consumes scrap and wires and increments traps count', () => {
+test('crafting bear trap and crimson flare consumes materials and increments counts', () => {
   const inv = createInitialInventory('normal');
   const ammo = {
     deagle: { mag: 7, res: 7 },
@@ -38,31 +42,57 @@ test('crafting bear trap consumes scrap and wires and increments traps count', (
   assert.equal(inv.traps, beforeTraps + 1);
   assert.equal(inv.scrap, beforeScrap - 2);
   assert.equal(inv.wires, beforeWires - 1);
+
+  const flareRecipe = CRAFT_RECIPES.find((r) => r.id === 'flare')!;
+  const beforeFlares = inv.flares;
+  assert.equal(applyCraft(inv, ammo, flareRecipe), true);
+  assert.equal(inv.flares, beforeFlares + 1);
 });
 
-test('flashlight battery drains when on and shuts off at 0%', () => {
-  const step1 = stepFlashlightBattery(50, true, 2.0, 5.0, false);
+test('flashlight battery drains when on and clamps to day-degraded max capacity', () => {
+  const step1 = stepFlashlightBattery(50, true, 2.0, 5.0, false, 1);
   assert.equal(step1.battery, 40);
+  assert.equal(step1.maxCapacity, 100);
   assert.equal(step1.torchOn, true);
   assert.equal(step1.flickerFactor, 1);
 
-  const stepLow = stepFlashlightBattery(11, true, 1.0, 1.0, false);
-  assert.equal(stepLow.battery, 10);
-  assert.equal(stepLow.torchOn, true);
-  assert.ok(stepLow.flickerFactor < 1);
+  const stepDay6 = stepFlashlightBattery(85, true, 2.0, 1.0, false, 6);
+  assert.equal(stepDay6.maxCapacity, 54);
+  assert.equal(stepDay6.battery, 52);
 
-  const stepDead = stepFlashlightBattery(2, true, 5.0, 1.0, false);
+  const stepDead = stepFlashlightBattery(2, true, 5.0, 1.0, false, 1);
   assert.equal(stepDead.battery, 0);
   assert.equal(stepDead.torchOn, false);
 });
 
-test('recharging battery consumes 1 battery item and adds +55% charge', () => {
+test('found battery maximum charge capacity and yield decrease by day number', () => {
+  assert.equal(getDayMaxBatteryCapacity(1), 100);
+  assert.equal(getDayMaxBatteryCapacity(3), 82);
+  assert.equal(getDayMaxBatteryCapacity(5), 63);
+  assert.equal(getDayMaxBatteryCapacity(7), 45);
+
+  assert.ok(getDayBatteryRechargeGain(1) > getDayBatteryRechargeGain(4));
+  assert.ok(getDayBatteryRechargeGain(4) > getDayBatteryRechargeGain(7));
+
   const inv = createInitialInventory('normal');
-  const prevBattCount = inv.batteries;
-  const res = rechargeBattery(25, inv);
-  assert.equal(res.recharged, true);
-  assert.equal(res.battery, 80);
-  assert.equal(inv.batteries, prevBattCount - 1);
+  inv.batteries = 3;
+
+  // Day 1 recharge: +55% up to 100%
+  const resDay1 = rechargeBattery(25, inv, 1);
+  assert.equal(resDay1.recharged, true);
+  assert.equal(resDay1.battery, 80);
+  assert.equal(resDay1.maxCapacity, 100);
+
+  // Day 6 recharge: capped at 54% max capacity even if starting at 45%
+  const resDay6 = rechargeBattery(45, inv, 6);
+  assert.equal(resDay6.recharged, true);
+  assert.equal(resDay6.battery, 54);
+  assert.equal(resDay6.maxCapacity, 54);
+
+  // Day 7 recharge when already at Day 7 ceiling (45%) should not waste a battery
+  const resFullEndgame = rechargeBattery(45, inv, 7);
+  assert.equal(resFullEndgame.recharged, false);
+  assert.equal(inv.batteries, 1);
 });
 
 test('noise scale computes green, yellow, and red acoustic zones accurately', () => {

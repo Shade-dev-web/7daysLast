@@ -10,15 +10,47 @@ interface JumpscareOverlayProps {
   jumpscare: JumpscareState;
   shaderFxEnabled: boolean;
   nightVision: boolean;
+  darknessLevel?: number;
+  graphicsModIntensity?: number;
+  uvMode?: boolean;
 }
 
 export const JumpscareOverlay: React.FC<JumpscareOverlayProps> = ({
   jumpscare,
   nightVision,
+  darknessLevel = 0.65,
+  graphicsModIntensity = 0.85,
+  uvMode = false,
 }) => {
+  const darkAlpha = Math.min(0.88, Math.max(0, (darknessLevel - 0.35) * 0.65));
+  const gfxVignette = Math.min(0.92, 0.35 + graphicsModIntensity * 0.48);
+
   return (
     <>
-      {/* NightVision tint only when enabled in Mod Menu (zero full-screen CSS scanline overhead in normal play) */}
+      {/* 1. Graphics Mod: Deep Abyssal Contrast & Atmospheric Vignette */}
+      {graphicsModIntensity > 0.05 && (
+        <div
+          className="fixed inset-0 pointer-events-none z-11"
+          style={{
+            background: `radial-gradient(ellipse at center, rgba(0,0,0,${(darkAlpha * 0.25).toFixed(
+              2
+            )}) 30%, rgba(2,3,6,${gfxVignette.toFixed(2)}) 100%)`,
+          }}
+        />
+      )}
+
+      {/* 2. UV Blacklight Spectral Tint when UV Mode is active */}
+      {uvMode && (
+        <div
+          className="fixed inset-0 pointer-events-none z-14"
+          style={{
+            background:
+              'radial-gradient(circle at center, rgba(139,92,246,0.12) 0%, rgba(30,10,60,0.45) 100%)',
+          }}
+        />
+      )}
+
+      {/* 3. NightVision tint only when enabled in Mod Menu */}
       {nightVision && (
         <div
           className="fixed inset-0 pointer-events-none z-15"
@@ -29,60 +61,39 @@ export const JumpscareOverlay: React.FC<JumpscareOverlayProps> = ({
         />
       )}
 
-      {/* Terrifying Jumpscare Apparition Overlay */}
+      {/* 4. Dark Psychological Horror Surge (No Cartoon Pop-up Face — Deep Abyssal Shadow & Crimson Veins) */}
       {jumpscare.active && (
         <div
           data-testid="jumpscare-overlay"
-          className="fixed inset-0 z-45 pointer-events-none flex flex-col items-center justify-center bg-black/85 overflow-hidden"
+          className="fixed inset-0 z-45 pointer-events-none flex items-center justify-center overflow-hidden"
+          style={{
+            background:
+              'radial-gradient(circle at center, rgba(15,0,4,0.22) 18%, rgba(65,0,12,0.78) 68%, rgba(0,0,0,0.98) 100%)',
+          }}
         >
-          <div className="relative w-[min(78vw,540px)] h-[min(78vh,540px)] flex items-center justify-center animate-bounce">
-            <svg
-              viewBox="0 0 240 240"
-              className="w-full h-full drop-shadow-[0_0_35px_rgba(244,63,94,0.95)]"
-            >
-              <circle cx="120" cy="120" r="105" fill="rgba(45,0,8,0.85)" />
-              <circle cx="120" cy="115" r="78" fill="#090708" stroke="#881337" strokeWidth="2.5" />
-              <path
-                d="M65 85 C60 40, 180 40, 175 85 C185 130, 162 195, 120 215 C78 195, 55 130, 65 85 Z"
-                fill="#181316"
-                stroke="#F43F5E"
-                strokeWidth="2"
-              />
-              <path
-                d="M75 70 L95 95 M165 70 L145 95 M80 145 L102 130 M160 145 L138 130"
-                stroke="#9F1239"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <ellipse cx="92" cy="102" rx="16" ry="11" fill="#4C0519" />
-              <ellipse cx="148" cy="102" rx="16" ry="11" fill="#4C0519" />
-              <circle cx="92" cy="102" r="7" fill="#F43F5E" />
-              <circle cx="148" cy="102" r="7" fill="#F43F5E" />
-              <circle cx="92" cy="102" r="2.8" fill="#FFF" />
-              <circle cx="148" cy="102" r="2.8" fill="#FFF" />
-              <path
-                d="M84 142 Q120 126 156 142 L148 196 Q120 212 92 196 Z"
-                fill="#050203"
-                stroke="#E11D48"
-                strokeWidth="2"
-              />
-              <path
-                d="M90 142 L96 162 L102 142 L108 165 L114 142 L120 168 L126 142 L132 165 L138 142 L144 162 L150 142"
-                fill="#E2E8F0"
-              />
-              <path
-                d="M94 194 L100 175 L106 194 L113 173 L120 194 L127 173 L134 194 L140 175 L146 194"
-                fill="#CBD5E1"
-              />
-              <path
-                d="M15 220 Q45 160 72 145 M25 232 Q58 178 82 165 M225 220 Q195 160 168 145 M215 232 Q182 178 158 165"
-                stroke="#F43F5E"
-                strokeWidth="5"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
-          </div>
+          {/* Peripheral organic shadow veins & dark abyssal frame */}
+          <svg
+            viewBox="0 0 800 450"
+            preserveAspectRatio="none"
+            className="w-full h-full opacity-90"
+          >
+            <path
+              d="M0 0 L240 0 Q120 75 75 180 Q35 280 0 450 Z"
+              fill="#030102"
+            />
+            <path
+              d="M800 0 L560 0 Q680 75 725 180 Q765 280 800 450 Z"
+              fill="#030102"
+            />
+            {/* Subtle dark crimson peripheral fractures */}
+            <path
+              d="M0 40 Q95 90 155 150 M0 160 Q80 185 135 235 M0 340 Q110 300 170 275 M800 50 Q705 100 645 160 M800 190 Q710 205 655 250 M800 360 Q690 310 625 280"
+              stroke="rgba(159,18,57,0.55)"
+              strokeWidth="2.5"
+              fill="none"
+              strokeLinecap="round"
+            />
+          </svg>
         </div>
       )}
     </>

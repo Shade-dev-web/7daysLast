@@ -12,6 +12,7 @@ import {
   applyCraft,
   stepFlashlightBattery,
   rechargeBattery,
+  getDayMaxBatteryCapacity,
   computeNoiseLevel,
   formatGameClock,
   CheckpointData,
@@ -23,6 +24,7 @@ import {
   buildGun,
   buildBearTrapMesh,
   buildDecoyMesh,
+  buildFlareMesh,
   put,
   CollisionBox,
 } from './game/worldBuilder';
@@ -41,6 +43,7 @@ import {
   GameSettings,
   ModMenuState,
 } from './components/PauseSettingsModal';
+import { ApkExportModal } from './components/ApkExportModal';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -142,6 +145,7 @@ export default function App() {
     hpGhost: null,
     hpVal: null,
     batteryBar: null,
+    batteryCapLock: null,
     batteryVal: null,
     foodBar: null,
     foodVal: null,
@@ -167,6 +171,11 @@ export default function App() {
 
   // React UI state (updated only on discrete user actions / state changes, never at 120Hz)
   const [screenMode, setScreenMode] = useState<'title' | 'playing' | 'paused' | 'gameover'>('title');
+  const [showIntroSplash, setShowIntroSplash] = useState<boolean>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('autostart') !== '1';
+  });
+  const [apkModalOpen, setApkModalOpen] = useState<boolean>(false);
   const [selDiff, setSelDiff] = useState<DifficultyKey>('normal');
   const [invOpen, setInvOpen] = useState(false);
   const [pauseTab, setPauseTab] = useState(0);
@@ -195,8 +204,18 @@ export default function App() {
   const [slotsList, setSlotsList] = useState<SaveSlotMeta[]>(() => getCheckpointSlotsList());
   const [hasSavedGame, setHasSavedGame] = useState<boolean>(() => Boolean(getLatestCheckpoint()));
 
+  // Auto-fade animated ARNEX WORK ПРЕДСТАВЛЯЕТ splash after 1.5s
+  useEffect(() => {
+    if (!showIntroSplash) return;
+    const t = window.setTimeout(() => {
+      setShowIntroSplash(false);
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [showIntroSplash]);
+
   // Snapshot of player inventory & status for modals and left panel buttons
   const [uiSnapshot, setUiSnapshot] = useState<{
+    day: number;
     inv: InventoryState;
     hp: number;
     hpMax: number;
@@ -205,10 +224,12 @@ export default function App() {
     battery: number;
     doorHp: number;
     torchOn: boolean;
+    uvMode: boolean;
     weapons: Record<WeaponKey, boolean>;
     ammo: Record<WeaponKey, { mag: number; res: number }>;
     curWeapon: WeaponKey | null;
   }>(() => ({
+    day: 1,
     inv: createInitialInventory('normal'),
     hp: 100,
     hpMax: 100,
@@ -217,6 +238,7 @@ export default function App() {
     battery: 100,
     doorHp: 100,
     torchOn: false,
+    uvMode: false,
     weapons: { deagle: false, shotgun: false, sniper: false },
     ammo: {
       deagle: { mag: 0, res: 0 },
@@ -238,10 +260,13 @@ export default function App() {
       customShaders: true,
       shadows: false,
       jumpscareIntensity: 1.0,
+      screamVol: 1.2,
+      darknessLevel: 0.65,
+      graphicsModIntensity: 0.85,
       vib: true,
       fov: 74,
       vol: 0.9,
-      ambientVol: 0.75,
+      ambientVol: 0.78,
     };
     try {
       const saved = JSON.parse(localStorage.getItem('s7_ultra_cfg') || '{}');
@@ -281,9 +306,10 @@ export default function App() {
     saveToSlot: (slotId: string, title?: string) => void;
     returnToTitle: () => void;
     toggleTorch: () => void;
+    toggleUv: () => void;
     rechargeTorch: () => void;
-    useConsumable: (type: 'food' | 'water' | 'battery' | 'medkit' | 'sedative') => void;
-    useDefenseTool: (type: 'trap' | 'decoy' | 'barricade') => void;
+    useConsumable: (type: 'food' | 'water' | 'battery' | 'medkit' | 'sedative' | 'adrenaline') => void;
+    useDefenseTool: (type: 'trap' | 'decoy' | 'barricade' | 'flare') => void;
     craftItem: (recipe: CraftRecipe) => void;
     selectWeapon: (w: WeaponKey) => void;
     swapWeapon: () => void;
@@ -314,6 +340,7 @@ export default function App() {
     document.documentElement.style.setProperty('--op', String(cfg.uiOpacity));
     sfx.setVolume(cfg.vol);
     sfx.setAmbientVolume(cfg.ambientVol);
+    sfx.setScreamVolume(cfg.screamVol ?? 1.2);
     horrorShaderUniforms.uShaderQuality.value = cfg.customShaders ? 1 : 0;
     try {
       localStorage.setItem('s7_ultra_cfg', JSON.stringify(cfg));
@@ -581,6 +608,8 @@ export default function App() {
       hidden: null as (typeof SPOTS)['wardrobe'] | null,
       aim: false,
       torch: false,
+      uvMode: false,
+      adrenalineT: 0,
       raidPlan: [] as number[],
       raid: null as { state: 'approach' | 'inside'; timer: number; stay: number; n: number } | null,
       day: 1,
@@ -632,20 +661,24 @@ export default function App() {
       breath: false,
     };
 
-    // Active Placed Traps & Thrown Decoys in 3D World
+    // Active Placed Traps, Thrown Decoys & Crimson Road Flares in 3D World
     const activeTraps: { x: number; z: number; mesh: THREE.Group }[] = [];
     const activeDecoys: { x: number; z: number; timer: number; ringT: number; mesh: THREE.Group }[] = [];
+    const activeFlares: { x: number; z: number; timer: number; mesh: THREE.Group; light: THREE.PointLight }[] = [];
 
     const clearTrapsAndDecoys = () => {
       activeTraps.forEach((t) => scene.remove(t.mesh));
       activeTraps.length = 0;
       activeDecoys.forEach((d) => scene.remove(d.mesh));
       activeDecoys.length = 0;
+      activeFlares.forEach((f) => scene.remove(f.mesh));
+      activeFlares.length = 0;
     };
 
     // Sync React UI Snapshot on discrete changes
     const syncReactSnapshot = () => {
       setUiSnapshot({
+        day: S.day,
         inv: { ...S.inv },
         hp: S.hp,
         hpMax: S.hpMax,
@@ -654,6 +687,7 @@ export default function App() {
         battery: S.battery,
         doorHp: S.doorHp,
         torchOn: S.torch,
+        uvMode: S.uvMode,
         weapons: { ...S.weapons },
         ammo: {
           deagle: { ...S.ammo.deagle },
@@ -962,12 +996,13 @@ export default function App() {
         return p;
       });
 
-      const scaleVal = arch === 'brute' ? 1.14 : arch === 'crawler' ? 0.88 : rnd(0.94, 1.04);
+      // Colossal biomechanical horror proportions (1.58x - 1.82x towering scale)
+      const scaleVal = arch === 'brute' ? 1.82 : arch === 'crawler' ? 1.52 : 1.72;
       g.scale.setScalar(scaleVal);
       g.position.set(x, 0, zz);
       scene.add(g);
 
-      const maxHp = arch === 'brute' ? 175 : arch === 'crawler' ? 75 : 100;
+      const maxHp = arch === 'brute' ? 240 : arch === 'crawler' ? 130 : 175;
       const z: ZombieActor = {
         g,
         hips,
@@ -1032,6 +1067,7 @@ export default function App() {
       doorCol.on = false;
       updateDoorPlanksVisual();
       sfx.bang();
+      sfx.monsterScream(1.15, 0);
       vib([60, 40, 90]);
       P.shake = Math.max(P.shake, 0.55);
       zs.forEach((z) => {
@@ -1043,7 +1079,7 @@ export default function App() {
           ];
         }
       });
-      toast('Дверь выломали! Прячься или ставь капкан!', 2800);
+      toast('Дверь выломали! 2 ОГРОМНЫХ МОНСТРА В ДОМЕ!', 2800);
       syncReactSnapshot();
     };
 
@@ -1069,21 +1105,22 @@ export default function App() {
       S.raidPlan = arr;
     };
 
+    // Strictly cap active monsters to 2 colossal fast screaming monsters
     const startRaid = () => {
-      const n =
-        clamp(1 + Math.floor(Math.random() * (1 + S.day / 2)), 1, D.zmax) +
-        (S.diff === 'ultra' && S.day >= 4 ? 1 : 0);
+      const aliveCount = zs.filter((z) => !z.dead && !z.gone).length;
+      const n = Math.max(0, Math.min(2 - aliveCount, 2));
+      if (n <= 0) return;
       const barBonus = S.doorHp > 50 ? 4.5 : 0;
       S.raid = { state: 'approach', timer: 8.5 + barBonus, stay: rnd(55, 95), n };
-      const archetypes: ZombieArchetype[] = ['stalker', 'brute', 'crawler'];
+      const archetypes: ZombieArchetype[] = ['brute', 'stalker'];
       for (let i = 0; i < n; i++) {
-        const z = makeZombie(5.5 + rnd(-2, 2), rnd(24, 30) + i * 2.4, 'outside', archetypes[i % 3]);
+        const z = makeZombie(5.5 + rnd(-1.8, 1.8), rnd(23, 28) + i * 2.6, 'outside', archetypes[i % 2]);
         z.sx = rnd(-1.1, 1.1);
         z.sz = i * 0.7;
       }
-      toast('Снаружи шаркают шаги… Гаси свет и замри!', 3500);
-      sfx.groan(0, 0.65);
-      vib([30, 60, 30]);
+      toast('Снаружи тяжёлый топот 2 ГИГАНТСКИХ МОНСТРОВ… Гаси свет!', 3500);
+      sfx.monsterScream(0.85, 0);
+      vib([50, 60, 80]);
     };
 
     // Checkpoint Save Builder
@@ -1777,7 +1814,8 @@ export default function App() {
             if (!hid) {
               z.state = 'chase';
               z.lostT = 0;
-              sfx.groan(panTo(z), volTo(z) * 1.2, z.archetype === 'brute' ? 0.75 : 1);
+              sfx.monsterScream(Math.min(1.4, volTo(z) * 1.35), panTo(z));
+              P.shake = Math.max(P.shake, 0.48);
             } else if (dist < 2.5 && st === 'search') {
               caughtByZombie(z);
               return;
@@ -2421,8 +2459,19 @@ export default function App() {
       if (sr.hpVal) sr.hpVal.textContent = String(Math.round(S.hp));
 
       if (sr.batteryBar) {
+        const isCritical = S.battery < 10;
         sr.batteryBar.style.width = `${clamp(S.battery, 0, 100)}%`;
-        sr.batteryBar.style.backgroundColor = S.battery < 22 ? '#f43f5e' : '#fbbf24';
+        sr.batteryBar.classList.toggle('battery-critical-pulse', isCritical);
+        sr.batteryBar.dataset.critical = isCritical ? 'true' : 'false';
+        sr.batteryBar.style.backgroundColor = isCritical
+          ? '#f43f5e'
+          : S.battery < 22
+          ? '#fb7185'
+          : '#fbbf24';
+      }
+      if (sr.batteryCapLock) {
+        const maxCap = getDayMaxBatteryCapacity(S.day);
+        sr.batteryCapLock.style.width = `${clamp(100 - maxCap, 0, 55)}%`;
       }
       if (sr.batteryVal) {
         sr.batteryVal.textContent = `${Math.round(S.battery)}%`;
@@ -2768,13 +2817,38 @@ export default function App() {
         vigElRef.current.style.opacity = nextVig.toFixed(2);
       }
 
-      // Flashlight Battery Drain & Flicker
+      // Active Crimson Road Flares Update
+      for (let fi = activeFlares.length - 1; fi >= 0; fi--) {
+        const fl = activeFlares[fi];
+        fl.timer -= simDt;
+        fl.light.intensity = 2.6 + Math.sin(performance.now() * 0.028 + fi) * 0.55;
+        // Flares repel colossal monsters within 2.5m
+        for (const z of zs) {
+          if (!z.dead && Math.hypot(z.pos.x - fl.x, z.pos.z - fl.z) < 2.5) {
+            z.stun = Math.max(z.stun, 0.7);
+          }
+        }
+        if (fl.timer <= 0) {
+          scene.remove(fl.mesh);
+          activeFlares.splice(fi, 1);
+          toast('Фальшфейер догорел', 1500);
+        }
+      }
+
+      if (S.adrenalineT > 0) {
+        S.adrenalineT = Math.max(0, S.adrenalineT - simDt);
+        P.panic = 0;
+        P.breath = 100;
+      }
+
+      // Flashlight Battery Drain & Day-Based Capacity Degradation
       const battStep = stepFlashlightBattery(
         S.battery,
         S.torch,
-        D.batteryDrain,
+        D.batteryDrain * (S.uvMode ? 0.7 : 1),
         simDt,
-        modRef.current.infBattery
+        modRef.current.infBattery,
+        S.day
       );
       if (S.torch && !battStep.torchOn) {
         S.torch = false;
@@ -2789,6 +2863,7 @@ export default function App() {
           flick *= Math.sin(performance.now() * 0.035) > -0.3 ? 1 : 0.12;
         }
         torch.visible = true;
+        torch.color.setHex(S.uvMode ? 0x8b5cf6 : 0xfff0d0);
         torch.intensity = 2.6 * flick;
       } else {
         torch.visible = false;
@@ -3148,16 +3223,36 @@ export default function App() {
         sfx.torchToggle(S.torch);
         syncReactSnapshot();
       },
+      toggleUv: () => {
+        if (S.mode !== 'playing') return;
+        S.uvMode = !S.uvMode;
+        sfx.click();
+        toast(
+          S.uvMode
+            ? 'УФ-спектр [UV] включён: экономия заряда 30% и подсветка следов'
+            : 'Обычный галогеновый спектр фонарика',
+          2000
+        );
+        syncReactSnapshot();
+      },
       rechargeTorch: () => {
-        const res = rechargeBattery(S.battery, S.inv);
+        const res = rechargeBattery(S.battery, S.inv, S.day);
         if (!res.recharged) {
-          toast(S.inv.batteries <= 0 ? 'Нет запасных батареек! Скрафти в меню [I]' : 'Фонарик уже заряжен', 2000);
+          toast(
+            S.inv.batteries <= 0
+              ? 'Нет запасных батареек! Скрафти в меню [I]'
+              : `Достигнут потолок ёмкости Дня ${S.day} (${res.maxCapacity}%)`,
+            2000
+          );
           return;
         }
         S.battery = res.battery;
         S.torch = true;
         sfx.batterySwap();
-        toast(`Батарея заменена! Заряд фонарика: ${Math.round(S.battery)}%`, 2200);
+        toast(
+          `Батарея заменена (+${res.gain}%)! Заряд: ${Math.round(S.battery)}% / ${res.maxCapacity}%`,
+          2200
+        );
         syncReactSnapshot();
       },
       useConsumable: (type) => {
@@ -3191,6 +3286,14 @@ export default function App() {
           P.breath = 100;
           sfx.drink();
           toast('Паника снята. Пульс в норме.', 1800);
+        } else if (type === 'adrenaline') {
+          if ((S.inv.adrenaline || 0) <= 0) return;
+          S.inv.adrenaline--;
+          S.adrenalineT = 12;
+          P.panic = 0;
+          P.breath = 100;
+          sfx.adrenalineInject();
+          toast('Адреналин введён! 100% дыхания и ускорение на 12 сек!', 2200);
         }
         syncReactSnapshot();
       },
@@ -3228,7 +3331,26 @@ export default function App() {
           scene.add(mesh);
           activeDecoys.push({ x: dx, z: dz, timer: 6.0, ringT: 0.05, mesh });
           sfx.decoyRing(0, 0.8);
-          toast('Шумовой будильник брошен! Зомби бегут к нему!', 2500);
+          toast('Шумовой маяк брошен! Монстры бегут к нему!', 2500);
+        } else if (type === 'flare') {
+          if ((S.inv.flares || 0) <= 0) {
+            toast('Нет фальшфейеров! Скрафти в мастерской [I]', 1800);
+            return;
+          }
+          S.inv.flares--;
+          const fx = -Math.sin(P.yaw);
+          const fz = -Math.cos(P.yaw);
+          const lx = clamp(P.x + fx * 1.4, 0.6, 10.4);
+          const lz = clamp(P.z + fz * 1.4, 0.6, 11.4);
+          const mesh = buildFlareMesh();
+          mesh.position.set(lx, 0, lz);
+          const light = new THREE.PointLight(0xff2a4b, 2.8, 10, 1.5);
+          light.position.set(0, 0.25, 0);
+          mesh.add(light);
+          scene.add(mesh);
+          activeFlares.push({ x: lx, z: lz, timer: 18.0, mesh, light });
+          sfx.flareHiss(0);
+          toast('Багровый фальшфейер горит 18 сек и отпугивает гигантов!', 2400);
         } else if (type === 'barricade') {
           if (S.inv.barricades <= 0) {
             toast('Нет баррикадных щитов!', 1800);
@@ -3303,11 +3425,12 @@ export default function App() {
         else sfx.resume();
       },
       execModAction: (act) => {
+        sfx.init();
         if (act === 'heal') {
           S.hp = S.hpMax;
           S.food = 100;
           S.water = 100;
-          S.battery = 100;
+          S.battery = getDayMaxBatteryCapacity(S.day);
           P.panic = 0;
         } else if (act === 'resources') {
           S.inv.scrap += 10;
@@ -3318,22 +3441,46 @@ export default function App() {
           S.inv.batteries += 5;
           S.inv.traps += 3;
           S.inv.decoys += 3;
+          S.inv.flares = (S.inv.flares || 0) + 3;
+          S.inv.adrenaline = (S.inv.adrenaline || 0) + 2;
         } else if (act === 'weapons') {
           WEAPON_LIST.forEach((w) => {
             S.weapons[w] = true;
             S.ammo[w] = { mag: WEAPONS[w].mag, res: 60 };
           });
           if (!S.cur) equip('deagle');
-        } else if (act === 'scare') {
-          triggerJumpscare('phantom', 'СКРИМЕР ПРОТЕСТИРОВАН!');
+        } else if (act === 'scream_roar' || act === 'scare') {
+          sfx.monsterScream(1.25, 0);
+          triggerJumpscare('phantom', 'ЖУТКИЙ КРИК ГИГАНТСКОГО МОНСТРА!');
+        } else if (act === 'test_battery_decay') {
+          S.day = Math.min(7, S.day + 1);
+          S.t = (S.day - 1) * 24 + 1;
+          S.battery = 8; // Set below 10% so player immediately sees the critical red pulse!
+          updateDomHud(0.1);
+        } else if (act === 'toggle_uv') {
+          engineApiRef.current?.toggleUv();
+        } else if (act === 'throw_flare') {
+          S.inv.flares = Math.max(1, S.inv.flares || 0);
+          engineApiRef.current?.useDefenseTool('flare');
+        } else if (act === 'use_adrenaline') {
+          S.inv.adrenaline = Math.max(1, S.inv.adrenaline || 0);
+          engineApiRef.current?.useConsumable('adrenaline');
+        } else if (act === 'test_heartbeat') {
+          P.panic = 0.85;
+          sfx.beat(0.95);
+        } else if (act === 'preset_nightmare_gfx') {
+          setCfg((prev) => ({ ...prev, darknessLevel: 0.9, graphicsModIntensity: 1.0 }));
         } else if (act === 'lightning') {
           triggerLightning();
-        } else if (act === 'spawn_stalker') {
-          makeZombie(5.5, 10.6, 'patrol', 'stalker');
-        } else if (act === 'spawn_brute') {
-          makeZombie(5.5, 10.6, 'patrol', 'brute');
-        } else if (act === 'spawn_crawler') {
-          makeZombie(5.5, 10.6, 'patrol', 'crawler');
+        } else if (act === 'spawn_stalker' || act === 'spawn_brute' || act === 'spawn_crawler') {
+          const aliveCount = zs.filter((z) => !z.dead && !z.gone).length;
+          if (aliveCount < 2) {
+            const arch = act === 'spawn_brute' ? 'brute' : act === 'spawn_crawler' ? 'crawler' : 'stalker';
+            makeZombie(5.5, 10.6, 'patrol', arch);
+            sfx.monsterScream(1.0, 0);
+          } else {
+            toast('В доме уже 2 гигантских монстра (лимит 2)!', 2000);
+          }
         } else if (act === 'raid') {
           if (!S.raid) startRaid();
         } else if (act === 'clear_zombies') {
@@ -3557,9 +3704,12 @@ export default function App() {
           <LeftScalePanel
             scaleRefs={scaleRefs}
             batteriesCount={uiSnapshot.inv.batteries}
+            batteryPct={uiSnapshot.battery}
             torchOn={uiSnapshot.torchOn}
+            uvMode={uiSnapshot.uvMode}
             micActive={micActive}
             onToggleTorch={() => engineApiRef.current?.toggleTorch()}
+            onToggleUv={() => engineApiRef.current?.toggleUv()}
             onRechargeBattery={() => engineApiRef.current?.rechargeTorch()}
             onOpenInventory={() => {
               const next = !invOpen;
@@ -3657,7 +3807,7 @@ export default function App() {
             </div>
           )}
 
-          {/* 5. Bottom-Center Pure Icon Quick Bar (Food, Water, Torch, Trap, Decoy) */}
+          {/* 5. Bottom-Center Pure Icon Quick Bar (Food, Water, Torch, Flare, Trap, Decoy) */}
           {!isHiddenState && (
             <div className="fixed bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1 rounded-2xl bg-[#0A0C10]/85 border border-white/15 pointer-events-auto shadow-xl">
               <button
@@ -3707,10 +3857,25 @@ export default function App() {
 
               <button
                 type="button"
+                onClick={() => engineApiRef.current?.useDefenseTool('flare')}
+                data-testid="hud-flare-btn"
+                aria-label="Зажечь фальшфейер"
+                className="relative w-9 h-9 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/45 flex items-center justify-center text-rose-300 active:scale-90 cursor-pointer"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2c1 3 4 5 4 9a4 4 0 1 1-8 0c0-4 3-6 4-9z" />
+                </svg>
+                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                  {uiSnapshot.inv.flares || 0}
+                </span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => engineApiRef.current?.useDefenseTool('trap')}
                 data-testid="hud-trap-btn"
                 aria-label="Поставить капкан"
-                className="relative w-9 h-9 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 flex items-center justify-center text-rose-300 active:scale-90 cursor-pointer"
+                className="relative w-9 h-9 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 flex items-center justify-center text-amber-300 active:scale-90 cursor-pointer"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="8" />
@@ -3863,6 +4028,30 @@ export default function App() {
       )}
 
       {/* =====================================================================
+          ANIMATED "ARNEX WORK ПРЕДСТАВЛЯЕТ" INTRO SPLASH OVERLAY
+         ===================================================================== */}
+      {showIntroSplash && screenMode === 'title' && (
+        <div
+          data-testid="arnex-intro-splash"
+          onClick={() => setShowIntroSplash(false)}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#040507] cursor-pointer select-none px-4 text-center"
+        >
+          <div className="font-['Unbounded'] text-3xl sm:text-6xl font-extrabold text-amber-400 arnex-title-anim drop-shadow-[0_0_32px_rgba(245,158,11,0.65)]">
+            ARNEX WORK
+          </div>
+          <div className="mt-2 font-mono text-xs sm:text-base font-bold text-rose-400 uppercase arnex-sub-anim">
+            ПРЕДСТАВЛЯЕТ
+          </div>
+          <div className="mt-5 w-56 sm:w-72 h-1 rounded-full bg-white/10 overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400 to-rose-500 arnex-sweep-anim" />
+          </div>
+          <div className="mt-3 font-mono text-[10px] sm:text-xs text-[#9499A3] tracking-[0.25em] uppercase">
+            ТИШИНА: 7 ДНЕЙ · ВЕРСИЯ 2.3.1 ULTRA
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
           TITLE SCREEN (Fits 100% inside 800x360 Mobile Landscape & 1440x900 Desktop)
          ===================================================================== */}
       {screenMode === 'title' && (
@@ -3870,12 +4059,12 @@ export default function App() {
           data-testid="title-screen"
           className="fixed inset-0 z-30 grid grid-cols-12 gap-3 lg:gap-8 items-center px-4 py-2.5 lg:px-12 lg:py-8 overflow-hidden bg-gradient-to-r from-[#040507]/95 via-[#040507]/65 to-[#040507]/88"
         >
-          {/* Left Column: Custom Inline SVG Emblem, Title & Quick Menu Buttons */}
-          <div className="col-span-7 flex flex-col justify-between gap-2 lg:gap-5">
+          {/* Left Column: ARNEX WORK v2.3.1 Lockup, Cover Preview & Quick Menu Buttons */}
+          <div className="col-span-7 flex flex-col justify-between gap-2 lg:gap-4">
             <div>
               {/* Custom Inline SVG Horror Title Lockup */}
-              <div className="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-3">
-                <svg className="w-6 h-6 lg:w-10 lg:h-10 text-amber-500 shrink-0" viewBox="0 0 48 48" fill="none">
+              <div className="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-2">
+                <svg className="w-6 h-6 lg:w-9 lg:h-9 text-amber-500 shrink-0" viewBox="0 0 48 48" fill="none">
                   <circle cx="24" cy="24" r="21" stroke="currentColor" strokeWidth="2" strokeDasharray="6 3" />
                   <path
                     d="M10 24h5l3-9 4 18 4-14 3 10 3-5h6"
@@ -3885,25 +4074,34 @@ export default function App() {
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span className="font-mono text-[9px] lg:text-xs tracking-[0.18em] text-amber-400 uppercase">
-                  120 FPS · GLSL SHADERS · SURVIVAL HORROR
+                <span className="font-mono text-[9px] lg:text-xs tracking-[0.18em] text-amber-400 uppercase font-bold">
+                  ARNEX WORK ПРЕДСТАВЛЯЕТ · ВЕРСИЯ 2.3.1
                 </span>
               </div>
 
               <h1 className="font-['Unbounded'] text-3xl lg:text-6xl font-extrabold tracking-tight text-white leading-none">
                 ТИШИНА
                 <span className="block text-xs lg:text-2xl text-amber-500 font-bold mt-1 lg:mt-2 tracking-normal">
-                  7 дней выживания · Ultra Edition
+                  7 дней выживания · v2.3.1 (2 Гигантских Монстра)
                 </span>
               </h1>
 
-              <p className="mt-1.5 lg:mt-4 text-[11px] lg:text-base text-[#9499A3] leading-snug lg:leading-relaxed max-w-xl line-clamp-3 lg:line-clamp-none">
-                Ты заперт в доме посреди ослепшего апокалипсиса. Монстры не видят во тьме, но слышат каждый шорох, скрип половиц и твоё дыхание. Следи за постоянной шкалой шума слева, экономь батарею фонарика, собирай ресурсы и крафти капканы, чтобы дожить до рассвета седьмого дня.
-              </p>
+              <div className="mt-1.5 lg:mt-3 flex items-center gap-3">
+                <img
+                  src="/assets/tishina_v2_3_1_cover.jpg"
+                  alt="Тишина 7 дней v2.3.1 — ARNEX WORK"
+                  referrerPolicy="no-referrer"
+                  onClick={() => setApkModalOpen(true)}
+                  className="hidden sm:block w-28 lg:w-44 aspect-video object-cover rounded-xl border border-amber-500/45 shadow-lg cursor-pointer shrink-0 hover:scale-102 transition-transform"
+                />
+                <p className="text-[11px] lg:text-sm text-[#9499A3] leading-snug lg:leading-relaxed max-w-xl line-clamp-3 lg:line-clamp-none">
+                  В доме и на улице охотятся строго <strong className="text-white">2 ОГРОМНЫХ стремительных монстра</strong> с многослойным жутким криком. Следи за шкалой шума слева, пульсацией батареи &lt;10%, используй УФ-луч [U], багровые фальшфейеры [X] и капканы [T].
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-1.5 lg:space-y-3">
-              <div className="flex flex-wrap items-center gap-2 lg:gap-3">
+            <div className="space-y-1.5 lg:space-y-2.5">
+              <div className="flex flex-wrap items-center gap-1.5 lg:gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -3912,27 +4110,34 @@ export default function App() {
                     setScreenMode('paused');
                   }}
                   data-testid="menu-settings-btn"
-                  className="px-3 py-1.5 lg:px-5 lg:py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-[11px] lg:text-sm font-bold text-white cursor-pointer"
+                  className="px-2.5 py-1.5 lg:px-4 lg:py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-[11px] lg:text-xs font-bold text-white cursor-pointer"
                 >
-                  Настройки (120 FPS и Шейдеры)
+                  Настройки и Graphics Mod
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setIsPauseFromMenu(true);
-                    setPauseTab(1);
-                    refreshSaveSlots();
+                    setPauseTab(3);
                     setScreenMode('paused');
                   }}
-                  data-testid="menu-checkpoints-btn"
-                  className="px-3 py-1.5 lg:px-5 lg:py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-[11px] lg:text-sm font-bold text-amber-300 cursor-pointer"
+                  data-testid="menu-ideas-btn"
+                  className="px-2.5 py-1.5 lg:px-4 lg:py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-[11px] lg:text-xs font-bold text-rose-300 cursor-pointer"
                 >
-                  Ключевые точки ({Object.keys(loadAllCheckpoints()).length})
+                  10 Идей и Крик Монстров
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setApkModalOpen(true)}
+                  data-testid="open-apk-modal-btn"
+                  className="px-2.5 py-1.5 lg:px-4 lg:py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/50 text-[11px] lg:text-xs font-bold text-amber-300 cursor-pointer"
+                >
+                  Скачать index.html v2.3.1 (20+ МБ) и Фото
                 </button>
               </div>
 
               <div className="text-[10px] lg:text-xs font-mono text-[#9499A3] truncate">
-                Джойстик / WASD Ходьба · C Присед · F Фонарь · V Батарея · I Крафт
+                WASD Ходьба · F Фонарь · U УФ-луч · X Факел · T Капкан · Z Маяк · I Крафт
               </div>
             </div>
           </div>
@@ -4001,10 +4206,16 @@ export default function App() {
       )}
 
       {/* =====================================================================
+          APK & STANDALONE INDEX.HTML V2.3.1 EXPORT MODAL
+         ===================================================================== */}
+      <ApkExportModal open={apkModalOpen} onClose={() => setApkModalOpen(false)} />
+
+      {/* =====================================================================
           INVENTORY & CRAFTING WORKSHOP MODAL
          ===================================================================== */}
       <InventoryModal
         open={invOpen}
+        day={uiSnapshot.day}
         inv={uiSnapshot.inv}
         hp={uiSnapshot.hp}
         hpMax={uiSnapshot.hpMax}

@@ -11,6 +11,7 @@ export interface LeftScaleRefs {
   hpGhost: HTMLDivElement | null;
   hpVal: HTMLSpanElement | null;
   batteryBar: HTMLDivElement | null;
+  batteryCapLock: HTMLDivElement | null;
   batteryVal: HTMLSpanElement | null;
   foodBar: HTMLDivElement | null;
   foodVal: HTMLSpanElement | null;
@@ -25,9 +26,12 @@ export interface LeftScaleRefs {
 interface LeftScalePanelProps {
   scaleRefs: React.MutableRefObject<LeftScaleRefs>;
   batteriesCount: number;
+  batteryPct?: number;
   torchOn: boolean;
+  uvMode?: boolean;
   micActive: boolean;
   onToggleTorch: () => void;
+  onToggleUv?: () => void;
   onRechargeBattery: () => void;
   onOpenInventory: () => void;
 }
@@ -35,21 +39,26 @@ interface LeftScalePanelProps {
 export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
   scaleRefs,
   batteriesCount,
+  batteryPct = 100,
   torchOn,
+  uvMode = false,
   micActive,
   onToggleTorch,
+  onToggleUv,
   onRechargeBattery,
   onOpenInventory,
 }) => {
+  const isCriticalBattery = batteryPct < 10;
+
   return (
     <aside
       aria-label="Шкала выживания и уровня шума"
       data-testid="left-scale-panel"
       className="fixed left-2 top-2 z-30 flex items-stretch gap-1.5 pointer-events-none select-none"
     >
-      {/* 1. Vertical Acoustic Noise Scale Column (Always Left, Zero Text Clutter) */}
+      {/* 1. Vertical Acoustic Noise Scale Column (Always Left) */}
       <div
-        className="w-6 rounded-xl bg-[#0A0C10]/85 border border-white/15 py-1.5 px-1 flex flex-col items-center justify-between"
+        className="w-6 rounded-xl bg-[#07080C]/90 border border-white/15 py-1.5 px-1 flex flex-col items-center justify-between"
         title="Шкала шума"
       >
         <svg
@@ -62,7 +71,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
           <path d="M4 10v4h3l5 4V6L7 10zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" />
         </svg>
 
-        <div className="relative w-2.5 flex-1 my-1 rounded-full overflow-hidden bg-black/85 border border-white/15 flex flex-col">
+        <div className="relative w-2.5 flex-1 my-1 rounded-full overflow-hidden bg-black/90 border border-white/15 flex flex-col">
           {/* Top 40%: Red danger zone */}
           <div className="h-[40%] w-full bg-rose-950/80 border-b border-rose-500/30" />
           {/* Middle 30%: Amber caution zone */}
@@ -89,10 +98,10 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
         </div>
       </div>
 
-      {/* 2. Ultra-Clean Icon-Only Visual Scales & Quick Action Buttons */}
-      <div className="w-[88px] rounded-xl bg-[#0A0C10]/85 border border-white/15 p-1.5 flex flex-col gap-1.5">
+      {/* 2. Ultra-Clean Visual Scales & Degraded Battery Capacity Indicator */}
+      <div className="w-[96px] rounded-xl bg-[#07080C]/90 border border-white/15 p-1.5 flex flex-col gap-1.5">
         {/* Horizontal 3-Zone Noise Scale Bar */}
-        <div className="relative h-2 w-full rounded-full bg-black/85 border border-white/20 flex overflow-visible">
+        <div className="relative h-2 w-full rounded-full bg-black/90 border border-white/20 flex overflow-visible">
           <div className="w-[30%] h-full bg-emerald-700/80 rounded-l-full" />
           <div className="w-[30%] h-full bg-amber-600/80" />
           <div className="w-[40%] h-full bg-rose-700/85 rounded-r-full" />
@@ -112,7 +121,7 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
           />
         </div>
 
-        {/* Flashlight Toggle + Battery Bar + Recharge Icon Button */}
+        {/* Flashlight Toggle + Battery Bar (Pulses Red below 10% + Day Degradation Lock Zone) + Recharge Button */}
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -123,7 +132,9 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
             aria-label="Переключить фонарик"
             className={`pointer-events-auto w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border cursor-pointer ${
               torchOn
-                ? 'bg-amber-500 text-black border-amber-300'
+                ? uvMode
+                  ? 'bg-violet-500 text-white border-violet-300'
+                  : 'bg-amber-500 text-black border-amber-300'
                 : 'bg-white/10 text-amber-300 border-white/15'
             }`}
           >
@@ -132,13 +143,35 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
             </svg>
           </button>
 
-          <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+          {/* Battery Bar with <10% Red High-Frequency Opacity Pulse & Corroded Day-Cap Lock Zone */}
+          <div
+            className={`relative flex-1 h-2.5 rounded-full bg-black/90 border overflow-hidden transition-colors ${
+              isCriticalBattery ? 'border-rose-500/85' : 'border-white/15'
+            }`}
+            title="Заряд и деградация ёмкости батареи по дням"
+          >
             <div
               ref={(el) => {
                 scaleRefs.current.batteryBar = el;
               }}
-              className="h-full bg-amber-400"
-              style={{ width: '100%' }}
+              data-testid="battery-bar-fill"
+              data-critical={isCriticalBattery ? 'true' : 'false'}
+              className={`h-full transition-[width] duration-75 ${
+                isCriticalBattery
+                  ? 'bg-rose-500 battery-critical-pulse'
+                  : batteryPct < 22
+                  ? 'bg-rose-400'
+                  : 'bg-amber-400'
+              }`}
+              style={{ width: `${Math.max(0, Math.min(100, batteryPct))}%` }}
+            />
+            {/* Corroded / Degraded capacity zone from right */}
+            <div
+              ref={(el) => {
+                scaleRefs.current.batteryCapLock = el;
+              }}
+              className="absolute right-0 top-0 bottom-0 bg-rose-950/95 border-l border-rose-500/80"
+              style={{ width: '0%' }}
             />
           </div>
 
@@ -249,25 +282,44 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
           </div>
         </div>
 
-        {/* Quick Inventory & Crafting Icon Button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.currentTarget.blur();
-            onOpenInventory();
-          }}
-          data-testid="open-inventory-btn"
-          aria-label="Инвентарь и крафт"
-          className="pointer-events-auto w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/45 text-amber-300 flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-          </svg>
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="4" y="7" width="16" height="14" rx="2" />
-            <path d="M8 7V5a4 4 0 0 1 8 0v2" />
-          </svg>
-        </button>
+        {/* Bottom Row: UV Spectrum Toggle + Inventory & Crafting Button */}
+        <div className="flex items-center gap-1">
+          {onToggleUv && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.currentTarget.blur();
+                onToggleUv();
+              }}
+              aria-label="УФ-режим фонарика"
+              className={`pointer-events-auto w-7 py-1.5 rounded-lg border flex items-center justify-center text-[10px] font-mono font-bold cursor-pointer ${
+                uvMode
+                  ? 'bg-violet-600 text-white border-violet-300'
+                  : 'bg-white/10 text-violet-300 border-white/15'
+              }`}
+            >
+              UV
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.currentTarget.blur();
+              onOpenInventory();
+            }}
+            data-testid="open-inventory-btn"
+            aria-label="Инвентарь и крафт"
+            className="pointer-events-auto flex-1 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/45 text-amber-300 flex items-center justify-center gap-1 active:scale-95 cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="4" y="7" width="16" height="14" rx="2" />
+              <path d="M8 7V5a4 4 0 0 1 8 0v2" />
+            </svg>
+          </button>
+        </div>
       </div>
     </aside>
   );

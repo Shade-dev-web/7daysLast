@@ -21,50 +21,50 @@ export interface DifficultyConfig {
 export const DIFFICULTIES: Record<DifficultyKey, DifficultyConfig> = {
   easy: {
     name: 'ЛЁГКИЙ',
-    desc: 'Зомби глуховаты и медленны. Батарея фонарика держит дольше, больше ресурсов для крафта.',
-    hear: 0.7,
+    desc: '2 огромных слепых монстра. Батарея фонарика держит дольше, больше ресурсов и выше шанс редкого лута.',
+    hear: 0.75,
     hunger: 44,
     thirst: 58,
-    dmg: 15,
-    zspeed: 2.0,
+    dmg: 20,
+    zspeed: 3.5,
     zmax: 2,
     raids: 2,
     loot: 1.5,
     trip: 0.15,
-    aware: 0.8,
+    aware: 0.85,
     hp: 100,
     batteryDrain: 1.4,
-    scareFreq: 0.6,
+    scareFreq: 0.7,
   },
   normal: {
     name: 'СРЕДНИЙ',
-    desc: 'Честный хоррор-баланс. Острый слух монстров, ограниченный заряд фонарика и ресурсы в обрез.',
+    desc: '2 гигантских быстрых монстра с жутким криком, деградация батарей по дням и шансовые события.',
     hear: 1.0,
     hunger: 64,
     thirst: 82,
-    dmg: 25,
-    zspeed: 2.8,
-    zmax: 3,
+    dmg: 28,
+    zspeed: 4.3,
+    zmax: 2,
     raids: 2,
     loot: 1.0,
     trip: 0.3,
-    aware: 1.0,
+    aware: 1.05,
     hp: 100,
     batteryDrain: 2.2,
     scareFreq: 1.0,
   },
   ultra: {
     name: 'УЛЬТРА-КОШМАР',
-    desc: 'Слышат даже сбивчивое дыхание. Фонарик быстро садится, частые скримеры и агрессивная охота.',
+    desc: 'Полная тьма. 2 колоссальных стремительных монстра слышат каждый вдох, быстрый износ батарей.',
     hear: 1.4,
     hunger: 82,
     thirst: 104,
-    dmg: 38,
-    zspeed: 3.6,
-    zmax: 5,
+    dmg: 42,
+    zspeed: 5.1,
+    zmax: 2,
     raids: 3,
-    loot: 0.7,
-    trip: 0.5,
+    loot: 0.75,
+    trip: 0.45,
     aware: 1.35,
     hp: 120,
     batteryDrain: 3.2,
@@ -89,7 +89,7 @@ export interface WeaponSpec {
 
 export const WEAPONS: Record<WeaponKey, WeaponSpec> = {
   deagle: {
-    name: 'DESERT EAGLE',
+    name: 'DESERT EAGLE .50 AE',
     mag: 7,
     rate: 0.32,
     dmg: 62,
@@ -100,7 +100,7 @@ export const WEAPONS: Record<WeaponKey, WeaponSpec> = {
     reload: 1.5,
   },
   shotgun: {
-    name: 'ДРОБОВИК M870',
+    name: 'REMINGTON M870 TACTICAL',
     mag: 6,
     rate: 0.9,
     dmg: 19,
@@ -111,7 +111,7 @@ export const WEAPONS: Record<WeaponKey, WeaponSpec> = {
     reload: 2.2,
   },
   sniper: {
-    name: 'СНАЙПЕРКА AWP',
+    name: 'AWM MAGNUM SNIPER',
     mag: 5,
     rate: 1.25,
     dmg: 260,
@@ -133,11 +133,13 @@ export interface InventoryState {
   batteries: number;
   medkits: number;
   sedatives: number;
+  adrenaline: number;
   // Defense Tools
   traps: number;
   decoys: number;
   barricades: number;
   shivs: number;
+  flares: number;
   // Crafting Materials
   scrap: number;
   wood: number;
@@ -153,6 +155,8 @@ export type CraftRecipeId =
   | 'battery'
   | 'medkit'
   | 'shiv'
+  | 'flare'
+  | 'adrenaline'
   | 'ammo_pack';
 
 export interface CraftRecipe {
@@ -171,25 +175,34 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     id: 'trap',
     name: 'Медвежий капкан',
     category: 'defense',
-    desc: 'Ставится на пол [T]. Наносит 85 урона зомби и оглушает его на 4 секунды.',
+    desc: 'Ставится на пол [T]. Стальные зубья наносят 85 урона твари и зажимают её на 4 секунды.',
     noiseOnCraft: 18,
     cost: { scrap: 2, wires: 1 },
     output: { traps: 1 },
   },
   {
     id: 'decoy',
-    name: 'Шумовой будильник',
+    name: 'Шумовой маяк',
     category: 'defense',
-    desc: 'Бросок приманки [Z]. Звенит 6 секунд (85 дБ), уводя слепых монстров прочь.',
+    desc: 'Бросок приманки [Z]. Издаёт резкий акустический сигнал 6 секунд (85 дБ), уводя слепых тварей.',
     noiseOnCraft: 14,
     cost: { scrap: 1, wires: 1 },
     output: { decoys: 1 },
   },
   {
+    id: 'flare',
+    name: 'Багровый фальшфейер',
+    category: 'defense',
+    desc: 'Бросок фальшфейера [X]. Горит 18 секунд ярким багровым светом без траты батареи и отпугивает тварей.',
+    noiseOnCraft: 10,
+    cost: { powder: 1, scrap: 1 },
+    output: { flares: 1 },
+  },
+  {
     id: 'barricade',
     name: 'Баррикадный щит',
     category: 'defense',
-    desc: 'Укрепляет входную дверь (+100% прочности), задерживая взлом во время рейда.',
+    desc: 'Укрепляет входную дверь (+100% прочности), задерживая взлом во время ночного штурма.',
     noiseOnCraft: 24,
     cost: { wood: 2, scrap: 1 },
     output: { barricades: 1 },
@@ -198,7 +211,7 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     id: 'shiv',
     name: 'Заточка выжившего',
     category: 'defense',
-    desc: 'Автоматически отбивает захват монстра в ближнем бою и спасает от гибели.',
+    desc: 'Автоматически пробивает шею твари при захвате в ближнем бою и спасает от гибели.',
     noiseOnCraft: 12,
     cost: { scrap: 1, cloth: 1 },
     output: { shivs: 1 },
@@ -207,7 +220,7 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     id: 'battery',
     name: 'Аккумулятор фонаря',
     category: 'survival',
-    desc: 'Самодельный элемент питания. Заряжает фонарик на +55% энергии.',
+    desc: 'Кустарная пересборка ячейки питания. Восстанавливает заряд с учётом износа текущего дня.',
     noiseOnCraft: 10,
     cost: { wires: 1, scrap: 1 },
     output: { batteries: 1 },
@@ -216,16 +229,25 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     id: 'medkit',
     name: 'Перевязочный пакет',
     category: 'survival',
-    desc: 'Останавливает кровотечение и восстанавливает +45 здоровья.',
+    desc: 'Останавливает кровавый след и восстанавливает +45 здоровья.',
     noiseOnCraft: 8,
     cost: { cloth: 2 },
     output: { medkits: 1 },
   },
   {
+    id: 'adrenaline',
+    name: 'Инъектор адреналина',
+    category: 'survival',
+    desc: 'Мгновенно гасит панику, даёт 100% дыхания и ускоряет движение на 12 секунд.',
+    noiseOnCraft: 6,
+    cost: { powder: 1, cloth: 1 },
+    output: { adrenaline: 1 },
+  },
+  {
     id: 'ammo_pack',
     name: 'Пачка патронов',
     category: 'defense',
-    desc: 'Сборка боеприпасов: +7 патронов Deagle и +4 картечи дробовика.',
+    desc: 'Оружейная сборка: +7 патронов .50 AE и +4 картечи 12-го калибра.',
     noiseOnCraft: 16,
     cost: { scrap: 1, powder: 1 },
     output: {},
@@ -241,10 +263,12 @@ export function createInitialInventory(diff: DifficultyKey): InventoryState {
     batteries: 2 + (diff === 'easy' ? 1 : 0),
     medkits: 1,
     sedatives: 1,
+    adrenaline: 1,
     traps: 1,
     decoys: 1,
     barricades: 1,
     shivs: diff === 'ultra' ? 0 : 1,
+    flares: 1 + (diff === 'easy' ? 1 : 0),
     scrap: 3 + mult,
     wood: 2 + mult,
     wires: 2 + mult,
@@ -284,42 +308,76 @@ export function applyCraft(
   return true;
 }
 
+/**
+ * Maximum charge capacity of found/active batteries decreases each day due to chemical oxidation
+ * and cold-drain degradation, making late-game light management much more intense:
+ * Day 1: 100%, Day 2: 91%, Day 3: 82%, Day 4: 73%, Day 5: 64%, Day 6: 54%, Day 7+: 45%
+ */
+export function getDayMaxBatteryCapacity(day: number): number {
+  const safeDay = Math.max(1, Math.floor(day || 1));
+  return Math.max(45, Math.min(100, Math.round(100 - (safeDay - 1) * 9.15)));
+}
+
+/**
+ * Amount of charge restored by a single found battery also degrades with the day number:
+ * Day 1: +55%, Day 2: +50%, Day 3: +45%, Day 4: +40%, Day 5: +35%, Day 6: +30%, Day 7+: +25%
+ */
+export function getDayBatteryRechargeGain(day: number): number {
+  const safeDay = Math.max(1, Math.floor(day || 1));
+  return Math.max(25, Math.min(55, 55 - (safeDay - 1) * 5));
+}
+
 export function stepFlashlightBattery(
   currentBattery: number,
   torchOn: boolean,
   drainPerSec: number,
   dt: number,
-  infiniteBattery = false
-): { battery: number; torchOn: boolean; flickerFactor: number } {
+  infiniteBattery = false,
+  day = 1
+): { battery: number; torchOn: boolean; flickerFactor: number; maxCapacity: number } {
+  const maxCapacity = getDayMaxBatteryCapacity(day);
+  const clampedCurrent = infiniteBattery ? 100 : Math.min(maxCapacity, currentBattery);
+
   if (!torchOn) {
-    return { battery: currentBattery, torchOn: false, flickerFactor: 1 };
+    return { battery: clampedCurrent, torchOn: false, flickerFactor: 1, maxCapacity };
   }
   if (infiniteBattery) {
-    return { battery: 100, torchOn: true, flickerFactor: 1 };
+    return { battery: 100, torchOn: true, flickerFactor: 1, maxCapacity: 100 };
   }
-  const next = Math.max(0, currentBattery - drainPerSec * dt);
+  const next = Math.max(0, clampedCurrent - drainPerSec * dt);
   if (next <= 0) {
-    return { battery: 0, torchOn: false, flickerFactor: 0 };
+    return { battery: 0, torchOn: false, flickerFactor: 0, maxCapacity };
   }
   let flickerFactor = 1;
   if (next < 22) {
     const ratio = next / 22;
     flickerFactor = Math.max(0.15, ratio);
   }
-  return { battery: next, torchOn: true, flickerFactor };
+  return { battery: next, torchOn: true, flickerFactor, maxCapacity };
 }
 
 export function rechargeBattery(
   currentBattery: number,
-  inv: InventoryState
-): { battery: number; recharged: boolean } {
-  if (inv.batteries <= 0 || currentBattery >= 99) {
-    return { battery: currentBattery, recharged: false };
+  inv: InventoryState,
+  day = 1
+): { battery: number; recharged: boolean; maxCapacity: number; gain: number } {
+  const maxCapacity = getDayMaxBatteryCapacity(day);
+  const gain = getDayBatteryRechargeGain(day);
+  if (inv.batteries <= 0 || currentBattery >= maxCapacity - 0.5) {
+    return {
+      battery: Math.min(maxCapacity, currentBattery),
+      recharged: false,
+      maxCapacity,
+      gain: 0,
+    };
   }
   inv.batteries -= 1;
+  const next = Math.min(maxCapacity, currentBattery + gain);
   return {
-    battery: Math.min(100, currentBattery + 55),
+    battery: next,
     recharged: true,
+    maxCapacity,
+    gain: Math.round(next - currentBattery),
   };
 }
 

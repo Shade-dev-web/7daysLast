@@ -6,10 +6,13 @@ import {
   canCraft,
   WeaponKey,
   WEAPONS,
+  getDayMaxBatteryCapacity,
+  getDayBatteryRechargeGain,
 } from '../game/rules';
 
 interface InventoryModalProps {
   open: boolean;
+  day?: number;
   inv: InventoryState;
   hp: number;
   hpMax: number;
@@ -21,8 +24,8 @@ interface InventoryModalProps {
   ammo: Record<WeaponKey, { mag: number; res: number }>;
   curWeapon: WeaponKey | null;
   onClose: () => void;
-  onUseConsumable: (type: 'food' | 'water' | 'battery' | 'medkit' | 'sedative') => void;
-  onUseDefenseTool: (type: 'trap' | 'decoy' | 'barricade') => void;
+  onUseConsumable: (type: 'food' | 'water' | 'battery' | 'medkit' | 'sedative' | 'adrenaline') => void;
+  onUseDefenseTool: (type: 'trap' | 'decoy' | 'barricade' | 'flare') => void;
   onCraftRecipe: (recipe: CraftRecipe) => void;
   onSelectWeapon: (w: WeaponKey) => void;
 }
@@ -37,6 +40,7 @@ const MATERIAL_LABELS: Record<string, string> = {
 
 export const InventoryModal: React.FC<InventoryModalProps> = ({
   open,
+  day = 1,
   inv,
   hp,
   hpMax,
@@ -57,20 +61,23 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
   if (!open) return null;
 
+  const maxCap = getDayMaxBatteryCapacity(day);
+  const battGain = getDayBatteryRechargeGain(day);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Инвентарь и мастерская крафта"
       data-testid="inventory-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/82 p-2 sm:p-4 select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/86 p-2 sm:p-4 select-none"
     >
-      <div className="w-full max-w-4xl max-h-[94vh] rounded-2xl bg-[#111318] border border-white/15 shadow-[0_24px_64px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden">
+      <div className="w-full max-w-4xl max-h-[94vh] rounded-2xl bg-[#0D0F14] border border-white/15 shadow-[0_24px_64px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden">
         {/* Top Header */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-3 border-b border-white/10 bg-[#0B0D11]">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-3 border-b border-white/10 bg-[#08090D]">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <h2 className="text-sm sm:text-lg font-bold tracking-tight text-white font-['Unbounded']">
-              СУМКА И КРАФТ
+              СУМКА И КРАФТ · ДЕНЬ {day}
             </h2>
             <div className="flex items-center gap-1 bg-white/5 p-0.5 sm:p-1 rounded-lg border border-white/10">
               <button
@@ -109,9 +116,8 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           </button>
         </div>
 
-        {/* Materials Strip (Always visible at top of modal) */}
-        <div className="px-3 py-1.5 sm:px-5 sm:py-2 bg-[#0D1016] border-b border-white/10 flex flex-wrap items-center justify-between gap-1.5 text-[11px] sm:text-xs">
-          <span className="text-[#9499A3] font-semibold">Детали:</span>
+        {/* Materials Strip + Battery Capacity Degradation Banner */}
+        <div className="px-3 py-1.5 sm:px-5 sm:py-2 bg-[#0A0C12] border-b border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs">
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 font-mono tabular-nums">
             <span>
               Лом: <strong className="text-amber-400">{inv.scrap}</strong>
@@ -133,6 +139,12 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               Порох: <strong className="text-amber-400">{inv.powder}</strong>
             </span>
           </div>
+          <div
+            data-testid="battery-degradation-info"
+            className="font-mono text-[11px] text-rose-400 font-bold"
+          >
+            Макс. ёмкость батареи (День {day}): {maxCap}% · Зарядка: +{battGain}%
+          </div>
         </div>
 
         {/* Main Content Area */}
@@ -142,9 +154,33 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               {/* Section 1: Consumables */}
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2.5">
-                  Припасы и Медикаменты
+                  Припасы, Энергия и Стимуляторы
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {/* Flashlight Battery with Day Degradation */}
+                  <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/35 flex flex-col justify-between gap-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-white">Батарея фонарика</span>
+                        <span className="font-mono text-xs font-bold text-amber-300 tabular-nums">
+                          {inv.batteries} шт.
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#9499A3] mt-1">
+                        День {day}: даёт +{battGain}% (потолок износа {maxCap}%). Сейчас:{' '}
+                        {Math.round(battery)}%/{maxCap}%
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={inv.batteries <= 0 || battery >= maxCap - 0.5}
+                      onClick={() => onUseConsumable('battery')}
+                      className="w-full py-1.5 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 disabled:opacity-40 border border-amber-500/50 text-xs font-bold text-amber-300 cursor-pointer"
+                    >
+                      Заменить батарею [V]
+                    </button>
+                  </div>
+
                   {/* Canned Food */}
                   <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 flex flex-col justify-between gap-2">
                     <div>
@@ -191,29 +227,6 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Flashlight Battery */}
-                  <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 flex flex-col justify-between gap-2">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm text-white">Батарея фонарика</span>
-                        <span className="font-mono text-xs font-bold text-amber-300 tabular-nums">
-                          {inv.batteries} шт.
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#9499A3] mt-1">
-                        Заряжает фонарик на +55%. Заряд: {Math.round(battery)}%
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={inv.batteries <= 0 || battery >= 99}
-                      onClick={() => onUseConsumable('battery')}
-                      className="w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-40 border border-amber-500/40 text-xs font-bold text-amber-300 cursor-pointer"
-                    >
-                      Заменить батарею [V]
-                    </button>
-                  </div>
-
                   {/* Medkit */}
                   <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 flex flex-col justify-between gap-2">
                     <div>
@@ -224,7 +237,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         </span>
                       </div>
                       <p className="text-xs text-[#9499A3] mt-1">
-                        Восстанавливает +45 HP. Здоровье: {Math.round(hp)}/{hpMax}
+                        Убирает запах крови и лечит +45 HP. Здоровье: {Math.round(hp)}/{hpMax}
                       </p>
                     </div>
                     <button
@@ -234,6 +247,29 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                       className="w-full py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-40 border border-rose-500/40 text-xs font-bold text-rose-300 cursor-pointer"
                     >
                       Перевязать раны
+                    </button>
+                  </div>
+
+                  {/* Adrenaline Injector */}
+                  <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 flex flex-col justify-between gap-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-white">Инъектор адреналина</span>
+                        <span className="font-mono text-xs font-bold text-cyan-300 tabular-nums">
+                          {inv.adrenaline || 0} шт.
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#9499A3] mt-1">
+                        Мгновенно гасит панику, даёт 100% дыхания и ускоряет бег на 12 сек.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={(inv.adrenaline || 0) <= 0}
+                      onClick={() => onUseConsumable('adrenaline')}
+                      className="w-full py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 disabled:opacity-40 border border-cyan-500/40 text-xs font-bold text-cyan-200 cursor-pointer"
+                    >
+                      Вколоть адреналин
                     </button>
                   </div>
 
@@ -247,7 +283,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         </span>
                       </div>
                       <p className="text-xs text-[#9499A3] mt-1">
-                        Снимает панику, выравнивает пульс и дыхание, убирает галлюцинации.
+                        Снимает панику, выравнивает пульс и дыхание в укрытии.
                       </p>
                     </div>
                     <button
@@ -265,9 +301,9 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               {/* Section 2: Crafted Defense Tools */}
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2.5">
-                  Инструменты Защиты и Ловушки
+                  Инструменты Защиты, Фальшфейеры и Ловушки
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                   {/* Bear Trap */}
                   <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 flex flex-col justify-between gap-2">
                     <div>
@@ -278,7 +314,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         </span>
                       </div>
                       <p className="text-xs text-[#9499A3] mt-1">
-                        Ставится под ноги. Наносит 85 урона и держит монстра 4 сек.
+                        Ставится под ноги. 85 урона и зажим твари на 4 сек.
                       </p>
                     </div>
                     <button
@@ -290,7 +326,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                       }}
                       className="w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-40 border border-amber-500/40 text-xs font-bold text-amber-300 cursor-pointer"
                     >
-                      Поставить на пол [T]
+                      Поставить [T]
                     </button>
                   </div>
 
@@ -298,13 +334,13 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                   <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 flex flex-col justify-between gap-2">
                     <div>
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm text-white">Будильник</span>
+                        <span className="font-bold text-sm text-white">Маяк шума</span>
                         <span className="font-mono text-xs font-bold text-amber-400 tabular-nums">
                           {inv.decoys} шт.
                         </span>
                       </div>
                       <p className="text-xs text-[#9499A3] mt-1">
-                        Бросок вперёд. Звенит 6 сек (85 дБ), отвлекая всех зомби.
+                        Бросок вперёд. Гудит 6 сек (85 дБ), уводя тварей.
                       </p>
                     </div>
                     <button
@@ -316,7 +352,33 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                       }}
                       className="w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-40 border border-amber-500/40 text-xs font-bold text-amber-300 cursor-pointer"
                     >
-                      Бросить приманку [Z]
+                      Бросить [Z]
+                    </button>
+                  </div>
+
+                  {/* Crimson Road Flare */}
+                  <div className="p-3.5 rounded-xl bg-rose-950/25 border border-rose-500/35 flex flex-col justify-between gap-2">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-white">Фальшфейер</span>
+                        <span className="font-mono text-xs font-bold text-rose-400 tabular-nums">
+                          {inv.flares || 0} шт.
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#9499A3] mt-1">
+                        Освещает пол 18 сек багровым пламенем без траты батареи.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={(inv.flares || 0) <= 0}
+                      onClick={() => {
+                        onUseDefenseTool('flare');
+                        onClose();
+                      }}
+                      className="w-full py-1.5 rounded-lg bg-rose-500/25 hover:bg-rose-500/35 disabled:opacity-40 border border-rose-500/50 text-xs font-bold text-rose-200 cursor-pointer"
+                    >
+                      Зажечь [X]
                     </button>
                   </div>
 
@@ -330,7 +392,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         </span>
                       </div>
                       <p className="text-xs text-[#9499A3] mt-1">
-                        Чинит и укрепляет входную дверь (сейчас {Math.round(doorHp)}%).
+                        Укрепляет входную дверь (сейчас {Math.round(doorHp)}%).
                       </p>
                     </div>
                     <button
@@ -353,11 +415,11 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         </span>
                       </div>
                       <p className="text-xs text-[#9499A3] mt-1">
-                        Срабатывает автоматически при захвате зомби, оглушая врага.
+                        Автоматически отбивает захват твари в ближнем бою.
                       </p>
                     </div>
                     <div className="py-1.5 text-center rounded-lg bg-white/5 text-[11px] font-mono text-[#9499A3]">
-                      Авто-защита в бою
+                      Авто-защита
                     </div>
                   </div>
                 </div>
@@ -366,7 +428,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               {/* Section 3: Arsenal */}
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2.5">
-                  Огнестрельное Оружие
+                  Огнестрельное Оружие (Улучшенные 3D-Модели)
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(['deagle', 'shotgun', 'sniper'] as WeaponKey[]).map((wk) => {

@@ -267,6 +267,33 @@ export function buildDecoyMesh(): THREE.Group {
   return g;
 }
 
+export function buildFlareMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.55, metalness: 0.25 });
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x26292e, roughness: 0.45, metalness: 0.7 });
+  const flameMat = new THREE.MeshBasicMaterial({ color: 0xff2a4b });
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xfff1f2 });
+
+  const stick = cyl(0.024, 0.024, 0.24, bodyMat, 12);
+  stick.position.set(0, 0.026, 0);
+  g.add(stick);
+
+  const cap = cyl(0.027, 0.027, 0.035, capMat, 12);
+  cap.position.set(0, 0.026, 0.11);
+  g.add(cap);
+
+  const flame = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), flameMat);
+  flame.position.set(0, 0.045, -0.13);
+  flame.name = 'flame';
+  g.add(flame);
+
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 8), coreMat);
+  core.position.set(0, 0.045, -0.13);
+  g.add(core);
+
+  return g;
+}
+
 export function buildHorrorHouse(
   scene: THREE.Scene,
   maxAnisotropy: number
