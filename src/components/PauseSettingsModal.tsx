@@ -187,30 +187,22 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                   )}
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-rose-950/25 border border-rose-500/35">
-                  <h3 className="font-bold text-rose-400 text-xs uppercase tracking-wider mb-1">
-                    Деградация ёмкости батарей по дням
-                  </h3>
-                  <p className="text-xs text-[#9499A3] leading-relaxed">
-                    С каждым прожитым днём химические ячейки найденных батарей окисляются: в День 1 максимальный заряд составляет 100% (+55% за батарейку), а к 7-му дню потолок падает до 45% (+25% за замену). Используйте багровые фальшфейеры [X] и УФ-режим [U] для экономии света!
-                  </p>
+                <div className="p-2.5 rounded-xl bg-rose-950/25 border border-rose-500/35 flex items-center justify-between">
+                  <span className="font-bold text-rose-300 text-xs">Деградация батарей по дням</span>
+                  <span className="font-mono text-xs text-rose-400 font-bold">День 1–7</span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
-                  <h3 className="font-bold text-amber-400 text-xs uppercase tracking-wider mb-1">
-                    Постоянная шкала шума слева
-                  </h3>
-                  <p className="text-xs text-[#9499A3] leading-relaxed">
-                    Слева всегда видна акустическая шкала. В зелёной зоне (&lt;30 дБ) твари вас не слышат. Бег, прыжки и выстрелы мгновенно поднимают шум в красную зону и вызывают охоту.
-                  </p>
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
+                  <span className="font-bold text-amber-300 text-xs">День (Лайт) / Ночь (Хардкор)</span>
+                  <span className="font-mono text-xs text-emerald-400 font-bold">АКТИВНО</span>
                 </div>
               </div>
             )}
 
             {tab === 1 && (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <h3 className="font-bold text-amber-400 text-xs uppercase tracking-wider">
-                  Слоты ключевых точек (1–2)
+                  Слоты (1–2)
                 </h3>
                 {slots.slice(0, 2).map((slot) => {
                   const d = slot.data;
@@ -218,25 +210,14 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                     <div
                       key={slot.slotId}
                       data-testid={`save-slot-${slot.slotId}`}
-                      className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-2.5"
+                      className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-2"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs sm:text-sm text-amber-400">{slot.label}</span>
+                        <span className="font-bold text-xs text-amber-400">{slot.label}</span>
                         <span className="font-mono text-[11px] text-[#9499A3]">
-                          {d ? d.savedAt : 'Пусто'}
+                          {d ? `День ${d.day} · ${d.clock}` : 'Пусто'}
                         </span>
                       </div>
-                      {d ? (
-                        <div className="text-xs text-white/90 font-mono tabular-nums space-y-0.5">
-                          <div>Точка: {d.title}</div>
-                          <div>
-                            День {d.day} ({d.clock}) · HP: {Math.round(d.hp)} · Заряд:{' '}
-                            {Math.round(d.battery)}%
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-[#9499A3]">Слот свободен для записи.</p>
-                      )}
                       <div className="flex items-center gap-2">
                         {!isFromMainMenu && slot.slotId !== 'auto' && (
                           <button
@@ -265,29 +246,20 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
             )}
 
             {tab === 2 && (
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                  Ползунки Звука Ужаса, Крика и Мрака
-                </h3>
-
+              <div className="space-y-2.5">
                 {/* Slider 1: Monster Scream Volume + Instant Test Button */}
-                <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/35 space-y-2.5">
+                <div className="p-2.5 rounded-xl bg-rose-950/20 border border-rose-500/35 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="font-bold text-white text-xs sm:text-sm">
-                        Громкость жуткого крика тварей
-                      </div>
-                      <div className="text-[11px] text-[#9499A3]">
-                        Многослойный формантный рёв ({Math.round((cfg.screamVol ?? 1) * 100)}%)
-                      </div>
-                    </div>
+                    <span className="font-bold text-white text-xs">
+                      Громкость крика ({Math.round((cfg.screamVol ?? 1) * 100)}%)
+                    </span>
                     <button
                       type="button"
                       onClick={() => onModAction('scream_roar')}
                       data-testid="test-scream-btn"
-                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold cursor-pointer shrink-0"
+                      className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold cursor-pointer shrink-0"
                     >
-                      Тест крика
+                      Тест
                     </button>
                   </div>
                   <input
@@ -304,11 +276,9 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                 </div>
 
                 {/* Slider 2: Graphics Mod Intensity */}
-                <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/35 space-y-2">
+                <div className="p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/35 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs sm:text-sm">
-                      Интенсивность Graphics Mod (PBR + Контраст)
-                    </span>
+                    <span className="font-bold text-white text-xs">Graphics Mod</span>
                     <span className="font-mono text-xs text-amber-400 font-bold">
                       {Math.round((cfg.graphicsModIntensity ?? 0.85) * 100)}%
                     </span>
@@ -326,12 +296,10 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                   />
                 </div>
 
-                {/* Slider 3: Darkness & Abyssal Atmosphere */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                {/* Slider 3: Darkness */}
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs sm:text-sm">
-                      Уровень темноты и густоты мрака
-                    </span>
+                    <span className="font-bold text-white text-xs">Темнота</span>
                     <span className="font-mono text-xs text-amber-400 font-bold">
                       {Math.round((cfg.darknessLevel ?? 0.65) * 100)}%
                     </span>
@@ -350,9 +318,9 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                 </div>
 
                 {/* Slider 4: Master Volume */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs sm:text-sm">Общая громкость</span>
+                    <span className="font-bold text-white text-xs">Громкость звука</span>
                     <span className="font-mono text-xs text-[#9499A3]">
                       {Math.round(cfg.vol * 100)}%
                     </span>
@@ -369,12 +337,10 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                   />
                 </div>
 
-                {/* Slider 5: Ambient Dread Drone Volume */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                {/* Slider 5: Ambient Volume */}
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs sm:text-sm">
-                      Громкость инфразвукового гула
-                    </span>
+                    <span className="font-bold text-white text-xs">Громкость гула</span>
                     <span className="font-mono text-xs text-[#9499A3]">
                       {Math.round(cfg.ambientVol * 100)}%
                     </span>
@@ -394,34 +360,28 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
             )}
 
             {tab === 3 && (
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                  10 Новых Хоррор-Идей и Механик (Идеи 1–5)
-                </h3>
+              <div className="space-y-2">
                 {TEN_HORROR_IDEAS.slice(0, 5).map((idea) => (
                   <div
                     key={idea.id}
                     data-testid={`horror-idea-${idea.number}`}
-                    className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-2"
+                    className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between gap-2"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-xs sm:text-sm text-white">
-                        #{idea.number}. {idea.title}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold shrink-0">
-                        АКТИВНО
-                      </span>
-                    </div>
-                    <div className="text-[10px] font-mono text-amber-400">{idea.subtitle}</div>
-                    <p className="text-xs text-[#9499A3] leading-relaxed">{idea.description}</p>
-                    {idea.actionId && (
+                    <span className="font-bold text-xs text-white">
+                      #{idea.number}. {idea.title}
+                    </span>
+                    {idea.actionId ? (
                       <button
                         type="button"
                         onClick={() => onModAction(idea.actionId!)}
-                        className="w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500 hover:text-black border border-amber-500/40 text-amber-300 font-bold text-xs transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500 hover:text-black border border-amber-500/40 text-amber-300 font-bold text-[11px] transition-colors cursor-pointer shrink-0"
                       >
                         {idea.actionLabel}
                       </button>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold shrink-0">
+                        ВКЛ
+                      </span>
                     )}
                   </div>
                 ))}
@@ -453,7 +413,7 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
             <span className="font-mono text-[10px] text-white/80 tabular-nums">{scrollPct}%</span>
           </div>
 
-          {/* RIGHT PANE (Scrollable Camera/HUD Sliders, Graphics Mod & Ideas 6–10) */}
+          {/* RIGHT PANE */}
           <div
             ref={rightPaneRef}
             onScroll={(e) => {
@@ -462,36 +422,29 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
               setScrollPct(Math.round((el.scrollTop / max) * 100));
             }}
             data-testid="settings-right-pane"
-            className="custom-scrollbar overflow-y-scroll p-3 sm:p-4 space-y-4 border-l border-white/10"
+            className="custom-scrollbar overflow-y-scroll p-3 sm:p-4 space-y-2.5 border-l border-white/10"
           >
             {tab === 0 && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
-                  <h3 className="font-bold text-amber-400 text-xs uppercase tracking-wider mb-1">
-                    Удобное расположение кнопок и управление
-                  </h3>
-                  <p className="text-xs text-[#9499A3] leading-relaxed">
-                    • Слева: постоянная шкала шума, индикатор износа батареи по дням и кнопка УФ-луча [UV]. Вся левая часть экрана свободна для плавного джойстика ходьбы.
-                    <br />• Внизу по центру: быстрый пояс выживания (Еда, Вода, Фонарь, Фальшфейер, Капкан, Маяк, Адреналин).
-                    <br />• Справа: эргономичная боевая дуга под большой палец (Огонь, Прицел, Смена оружия, Перезарядка, Присед, Прыжок).
-                  </p>
+              <div className="space-y-2.5">
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
+                  <span className="font-bold text-amber-300 text-xs">Оружейка у Магазина</span>
+                  <span className="font-mono text-xs text-emerald-400 font-bold">ОТКРЫТА</span>
                 </div>
-
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
-                  <h3 className="font-bold text-amber-400 text-xs uppercase tracking-wider mb-1">
-                    Улучшенные 3D-модели оружия и монстров
-                  </h3>
-                  <p className="text-xs text-[#9499A3] leading-relaxed">
-                    Оружие оснащено планками Пикатинни, затворными рамами, тритиевыми прицелами и оптикой. Твари имеют анатомический скелет с рёбрами, позвоночником, рассечённой челюстью и длинными когтями.
-                  </p>
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
+                  <span className="font-bold text-amber-300 text-xs">Видимые 3D-ноги и Пинок [K]</span>
+                  <span className="font-mono text-xs text-emerald-400 font-bold">ВКЛ</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
+                  <span className="font-bold text-amber-300 text-xs">Дождь по расписанию</span>
+                  <span className="font-mono text-xs text-sky-400 font-bold">13:00 / 20:30</span>
                 </div>
               </div>
             )}
 
             {tab === 1 && (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <h3 className="font-bold text-amber-400 text-xs uppercase tracking-wider">
-                  Слоты ключевых точек (3–4)
+                  Слоты (3–4)
                 </h3>
                 {slots.slice(2).map((slot) => {
                   const d = slot.data;
@@ -499,25 +452,14 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                     <div
                       key={slot.slotId}
                       data-testid={`save-slot-${slot.slotId}`}
-                      className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-2.5"
+                      className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-2"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs sm:text-sm text-amber-400">{slot.label}</span>
+                        <span className="font-bold text-xs text-amber-400">{slot.label}</span>
                         <span className="font-mono text-[11px] text-[#9499A3]">
-                          {d ? d.savedAt : 'Пусто'}
+                          {d ? `День ${d.day} · ${d.clock}` : 'Пусто'}
                         </span>
                       </div>
-                      {d ? (
-                        <div className="text-xs text-white/90 font-mono tabular-nums space-y-0.5">
-                          <div>Точка: {d.title}</div>
-                          <div>
-                            День {d.day} ({d.clock}) · HP: {Math.round(d.hp)} · Заряд:{' '}
-                            {Math.round(d.battery)}%
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-[#9499A3]">Слот свободен для записи.</p>
-                      )}
                       <div className="flex items-center gap-2">
                         {!isFromMainMenu && slot.slotId !== 'auto' && (
                           <button
@@ -546,17 +488,11 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
             )}
 
             {tab === 2 && (
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                  Камера, Кнопки HUD и 120 FPS Графика
-                </h3>
-
+              <div className="space-y-2.5">
                 {/* Camera Sensitivity Slider */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs sm:text-sm">
-                      Чувствительность камеры
-                    </span>
+                    <span className="font-bold text-white text-xs">Чувствительность</span>
                     <span className="font-mono text-xs text-amber-400 font-bold">
                       {cfg.sens.toFixed(2)}×
                     </span>
@@ -574,11 +510,9 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                 </div>
 
                 {/* FOV Slider */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs sm:text-sm">
-                      Угол обзора камеры (FOV)
-                    </span>
+                    <span className="font-bold text-white text-xs">Угол обзора (FOV)</span>
                     <span className="font-mono text-xs text-amber-400 font-bold">{cfg.fov}°</span>
                   </div>
                   <input
@@ -594,11 +528,9 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                 </div>
 
                 {/* Button Size Slider */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs sm:text-sm">
-                      Масштаб удобных кнопок HUD
-                    </span>
+                    <span className="font-bold text-white text-xs">Размер кнопок</span>
                     <span className="font-mono text-xs text-amber-400 font-bold">
                       {Math.round(cfg.uiScale * 100)}%
                     </span>
@@ -616,11 +548,9 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                 </div>
 
                 {/* Render Quality Slider */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs sm:text-sm">
-                      Качество рендера (0-Эконом, 1-Баланс, 2-Ультра)
-                    </span>
+                    <span className="font-bold text-white text-xs">Качество графики</span>
                     <span className="font-mono text-xs text-amber-400 font-bold">
                       {cfg.quality}
                     </span>
@@ -638,11 +568,9 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                 </div>
 
                 {/* Graphics Toggles */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2.5">
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
                   <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-xs font-bold text-white">
-                      Современные GLSL-шейдеры и лучи
-                    </span>
+                    <span className="text-xs font-bold text-white">Шейдеры</span>
                     <input
                       type="checkbox"
                       checked={cfg.customShaders}
@@ -652,9 +580,7 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                     />
                   </label>
                   <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-xs font-bold text-white">
-                      Динамическое хоррор-освещение
-                    </span>
+                    <span className="text-xs font-bold text-white">Тени и свет</span>
                     <input
                       type="checkbox"
                       checked={cfg.dynamicLights}
@@ -664,9 +590,7 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
                     />
                   </label>
                   <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-xs font-bold text-white">
-                      Детектор реального микрофона
-                    </span>
+                    <span className="text-xs font-bold text-white">Микрофон</span>
                     <input
                       type="checkbox"
                       checked={micOn}
@@ -680,34 +604,28 @@ export const PauseSettingsModal: React.FC<PauseSettingsModalProps> = ({
             )}
 
             {tab === 3 && (
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                  10 Новых Хоррор-Идей и Graphics Mod (Идеи 6–10)
-                </h3>
+              <div className="space-y-2">
                 {TEN_HORROR_IDEAS.slice(5, 10).map((idea) => (
                   <div
                     key={idea.id}
                     data-testid={`horror-idea-${idea.number}`}
-                    className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-2"
+                    className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between gap-2"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-xs sm:text-sm text-white">
-                        #{idea.number}. {idea.title}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold shrink-0">
-                        АКТИВНО
-                      </span>
-                    </div>
-                    <div className="text-[10px] font-mono text-amber-400">{idea.subtitle}</div>
-                    <p className="text-xs text-[#9499A3] leading-relaxed">{idea.description}</p>
-                    {idea.actionId && (
+                    <span className="font-bold text-xs text-white">
+                      #{idea.number}. {idea.title}
+                    </span>
+                    {idea.actionId ? (
                       <button
                         type="button"
                         onClick={() => onModAction(idea.actionId!)}
-                        className="w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500 hover:text-black border border-amber-500/40 text-amber-300 font-bold text-xs transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500 hover:text-black border border-amber-500/40 text-amber-300 font-bold text-[11px] transition-colors cursor-pointer shrink-0"
                       >
                         {idea.actionLabel}
                       </button>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold shrink-0">
+                        ВКЛ
+                      </span>
                     )}
                   </div>
                 ))}

@@ -19,6 +19,12 @@ export interface LeftScaleRefs {
   waterVal: HTMLSpanElement | null;
   breathBar: HTMLDivElement | null;
   pulseVal: HTMLSpanElement | null;
+  pulseCard?: HTMLDivElement | null;
+  pulseHeart?: SVGSVGElement | null;
+  pulseEcgCanvas?: HTMLCanvasElement | null;
+  pantBadge?: HTMLSpanElement | null;
+  screenPulseOverlay?: HTMLDivElement | null;
+  breathMistOverlay?: HTMLDivElement | null;
   doorBar: HTMLDivElement | null;
   doorVal: HTMLSpanElement | null;
 }
@@ -98,8 +104,8 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
         </div>
       </div>
 
-      {/* 2. Ultra-Clean Visual Scales & Degraded Battery Capacity Indicator */}
-      <div className="w-[96px] rounded-xl bg-[#07080C]/90 border border-white/15 p-1.5 flex flex-col gap-1.5">
+      {/* 2. Ultra-Clean Visual Scales, Real-Time Pulse Sensor & Degraded Battery Capacity Indicator */}
+      <div className="w-[116px] rounded-xl bg-[#07080C]/92 border border-white/20 p-1.5 flex flex-col gap-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.85)]">
         {/* Horizontal 3-Zone Noise Scale Bar */}
         <div className="relative h-2 w-full rounded-full bg-black/90 border border-white/20 flex overflow-visible">
           <div className="w-[30%] h-full bg-emerald-700/80 rounded-l-full" />
@@ -282,6 +288,59 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
           </div>
         </div>
 
+        {/* Real-Time Heart Rate / ECG Pulse Sensor & Panting ("Отдышка") Component */}
+        <div
+          ref={(el) => {
+            scaleRefs.current.pulseCard = el;
+          }}
+          data-testid="pulse-sensor-hud"
+          className="rounded-lg bg-black/90 border border-emerald-500/40 p-1.5 flex flex-col gap-1 transition-colors duration-150"
+          title="Датчик пульса в реальном времени и отдышка (ускоряется при панике R.panic)"
+        >
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1">
+              <svg
+                ref={(el) => {
+                  scaleRefs.current.pulseHeart = el;
+                }}
+                className="w-3.5 h-3.5 text-rose-500 shrink-0 origin-center transition-transform duration-75 drop-shadow-[0_0_5px_rgba(244,63,94,0.85)]"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+              <span
+                ref={(el) => {
+                  scaleRefs.current.pulseVal = el;
+                }}
+                data-testid="pulse-bpm-val"
+                className="font-mono text-[10px] font-extrabold text-emerald-400 tabular-nums leading-none"
+              >
+                64 BPM
+              </span>
+            </div>
+            <span
+              ref={(el) => {
+                scaleRefs.current.pantBadge = el;
+              }}
+              data-testid="pant-status-badge"
+              className="px-1 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/35 font-mono text-[8px] font-extrabold text-emerald-300 leading-none tracking-tight"
+            >
+              НОРМА
+            </span>
+          </div>
+
+          {/* Live Real-Time ECG Cardiogram Canvas */}
+          <canvas
+            ref={(el) => {
+              scaleRefs.current.pulseEcgCanvas = el;
+            }}
+            width={98}
+            height={22}
+            className="w-full h-[22px] rounded bg-[#030508] border border-white/10 block"
+          />
+        </div>
+
         {/* Bottom Row: UV Spectrum Toggle + Inventory & Crafting Button */}
         <div className="flex items-center gap-1">
           {onToggleUv && (
@@ -321,6 +380,32 @@ export const LeftScalePanel: React.FC<LeftScalePanelProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Full-Screen Arterial Heartbeat Pulse & Shortness-of-Breath ("Отдышка") Frost Overlays */}
+      <div
+        ref={(el) => {
+          scaleRefs.current.screenPulseOverlay = el;
+        }}
+        data-testid="screen-pulse-overlay"
+        className="fixed inset-0 pointer-events-none z-11 transition-opacity duration-75"
+        style={{
+          opacity: 0,
+          background:
+            'radial-gradient(ellipse at center, rgba(225,29,72,0) 42%, rgba(225,29,72,0.52) 86%, rgba(136,19,55,0.82) 100%)',
+        }}
+      />
+      <div
+        ref={(el) => {
+          scaleRefs.current.breathMistOverlay = el;
+        }}
+        data-testid="breath-mist-overlay"
+        className="fixed inset-x-0 bottom-0 h-[38vh] pointer-events-none z-11 transition-opacity duration-150"
+        style={{
+          opacity: 0,
+          background:
+            'radial-gradient(ellipse at 50% 100%, rgba(186,230,253,0.34) 0%, rgba(125,211,252,0.14) 45%, rgba(0,0,0,0) 80%)',
+        }}
+      />
     </aside>
   );
 };

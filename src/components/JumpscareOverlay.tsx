@@ -2,98 +2,150 @@ import React from 'react';
 
 export interface JumpscareState {
   active: boolean;
-  kind: 'phantom' | 'window' | 'closet' | 'caught';
-  caption: string;
+  kind: 'phantom' | 'blood_eye' | 'grab' | 'door_slam' | 'stalker' | string;
+  caption?: string;
 }
 
 interface JumpscareOverlayProps {
   jumpscare: JumpscareState;
-  shaderFxEnabled: boolean;
-  nightVision: boolean;
-  darknessLevel?: number;
-  graphicsModIntensity?: number;
-  uvMode?: boolean;
+  shaderFxEnabled?: boolean;
+  nightVision?: boolean;
 }
 
 export const JumpscareOverlay: React.FC<JumpscareOverlayProps> = ({
   jumpscare,
+  shaderFxEnabled,
   nightVision,
-  darknessLevel = 0.65,
-  graphicsModIntensity = 0.85,
-  uvMode = false,
 }) => {
-  const darkAlpha = Math.min(0.88, Math.max(0, (darknessLevel - 0.35) * 0.65));
-  const gfxVignette = Math.min(0.92, 0.35 + graphicsModIntensity * 0.48);
-
   return (
     <>
-      {/* 1. Graphics Mod: Deep Abyssal Contrast & Atmospheric Vignette */}
-      {graphicsModIntensity > 0.05 && (
-        <div
-          className="fixed inset-0 pointer-events-none z-11"
-          style={{
-            background: `radial-gradient(ellipse at center, rgba(0,0,0,${(darkAlpha * 0.25).toFixed(
-              2
-            )}) 30%, rgba(2,3,6,${gfxVignette.toFixed(2)}) 100%)`,
-          }}
-        />
-      )}
-
-      {/* 2. UV Blacklight Spectral Tint when UV Mode is active */}
-      {uvMode && (
-        <div
-          className="fixed inset-0 pointer-events-none z-14"
-          style={{
-            background:
-              'radial-gradient(circle at center, rgba(139,92,246,0.12) 0%, rgba(30,10,60,0.45) 100%)',
-          }}
-        />
-      )}
-
-      {/* 3. NightVision tint only when enabled in Mod Menu */}
-      {nightVision && (
+      {shaderFxEnabled && (
         <div
           className="fixed inset-0 pointer-events-none z-15"
           style={{
-            background:
-              'radial-gradient(circle at center, rgba(16,185,129,0.08) 0%, rgba(0,20,10,0.45) 100%)',
+            background: nightVision
+              ? 'radial-gradient(ellipse at center, rgba(16,185,129,0.08) 0%, rgba(4,47,46,0.32) 100%)'
+              : 'repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 3px, rgba(0,0,0,0.12) 4px)',
           }}
         />
       )}
 
-      {/* 4. Dark Psychological Horror Surge (No Cartoon Pop-up Face — Deep Abyssal Shadow & Crimson Veins) */}
       {jumpscare.active && (
         <div
           data-testid="jumpscare-overlay"
-          className="fixed inset-0 z-45 pointer-events-none flex items-center justify-center overflow-hidden"
+          className="fixed inset-0 z-[52] pointer-events-none overflow-hidden select-none flex flex-col items-center justify-center animate-pulse"
           style={{
             background:
-              'radial-gradient(circle at center, rgba(15,0,4,0.22) 18%, rgba(65,0,12,0.78) 68%, rgba(0,0,0,0.98) 100%)',
+              'radial-gradient(circle at 50% 45%, rgba(165, 10, 24, 0.55) 0%, rgba(28, 2, 5, 0.94) 52%, rgba(0, 0, 0, 0.99) 100%)',
           }}
         >
-          {/* Peripheral organic shadow veins & dark abyssal frame */}
+          {/* Terrifying Anatomical Nightmare Monster Face Lunge */}
           <svg
-            viewBox="0 0 800 450"
-            preserveAspectRatio="none"
-            className="w-full h-full opacity-90"
+            viewBox="0 0 400 400"
+            className="w-[88vmin] h-[88vmin] max-w-[680px] max-h-[680px] drop-shadow-[0_0_65px_rgba(255,15,35,0.92)] scale-110 transition-transform duration-75"
           >
-            <path
-              d="M0 0 L240 0 Q120 75 75 180 Q35 280 0 450 Z"
-              fill="#030102"
+            {/* Torn Necrotic Cranium & Cheekbones */}
+            <ellipse
+              cx="200"
+              cy="175"
+              rx="118"
+              ry="135"
+              fill="#1e1513"
+              stroke="#5a080c"
+              strokeWidth="4"
             />
+            <polygon points="88,165 55,210 112,240" fill="#2c1d19" />
+            <polygon points="312,165 345,210 288,240" fill="#2c1d19" />
+
+            {/* Necrotic Blood Veins */}
             <path
-              d="M800 0 L560 0 Q680 75 725 180 Q765 280 800 450 Z"
-              fill="#030102"
-            />
-            {/* Subtle dark crimson peripheral fractures */}
-            <path
-              d="M0 40 Q95 90 155 150 M0 160 Q80 185 135 235 M0 340 Q110 300 170 275 M800 50 Q705 100 645 160 M800 190 Q710 205 655 250 M800 360 Q690 310 625 280"
-              stroke="rgba(159,18,57,0.55)"
-              strokeWidth="2.5"
+              d="M110,95 L145,135 L125,175 M290,95 L255,135 L275,175 M200,55 L192,115 L210,150"
+              stroke="#880812"
+              strokeWidth="3.5"
               fill="none"
-              strokeLinecap="round"
             />
+
+            {/* Deep Sunken Eye Sockets + Piercing Crimson Pupils */}
+            <ellipse
+              cx="146"
+              cy="156"
+              rx="34"
+              ry="38"
+              fill="#030000"
+              stroke="#3d070a"
+              strokeWidth="3"
+            />
+            <ellipse
+              cx="254"
+              cy="156"
+              rx="34"
+              ry="38"
+              fill="#030000"
+              stroke="#3d070a"
+              strokeWidth="3"
+            />
+            <circle cx="146" cy="156" r="13" fill="#ff111e" />
+            <circle cx="254" cy="156" r="13" fill="#ff111e" />
+            <circle cx="144" cy="153" r="4.5" fill="#ffffff" />
+            <circle cx="252" cy="153" r="4.5" fill="#ffffff" />
+
+            {/* Nasal Bone Cavity */}
+            <polygon
+              points="200,170 183,212 217,212"
+              fill="#050000"
+              stroke="#45080b"
+              strokeWidth="2"
+            />
+
+            {/* Unhinged Gaping Maw */}
+            <ellipse
+              cx="200"
+              cy="272"
+              rx="86"
+              ry="68"
+              fill="#040000"
+              stroke="#7f0912"
+              strokeWidth="5"
+            />
+            <ellipse cx="200" cy="278" rx="56" ry="42" fill="#520409" />
+
+            {/* Upper Razor Fangs */}
+            {[-66, -48, -32, -16, 0, 16, 32, 48, 66].map((dx, idx) => (
+              <polygon
+                key={`uf-${idx}`}
+                points={`${200 + dx - 7},224 ${200 + dx + 7},224 ${200 + dx},${264 + (idx % 2) * 14}`}
+                fill="#e5dac3"
+                stroke="#5c080b"
+                strokeWidth="1.2"
+              />
+            ))}
+
+            {/* Lower Split Mandible Fangs */}
+            {[-60, -44, -28, -12, 12, 28, 44, 60].map((dx, idx) => (
+              <polygon
+                key={`lf-${idx}`}
+                points={`${200 + dx - 6},322 ${200 + dx + 6},322 ${200 + dx},${284 - (idx % 2) * 12}`}
+                fill="#dfd1b4"
+                stroke="#5c080b"
+                strokeWidth="1.2"
+              />
+            ))}
           </svg>
+
+          {jumpscare.caption && (
+            <div className="mt-2 px-5 py-1.5 rounded-lg bg-black/85 border border-rose-500/60 font-['Unbounded'] text-sm sm:text-base font-extrabold tracking-widest text-rose-400 uppercase shadow-2xl">
+              {jumpscare.caption}
+            </div>
+          )}
+
+          {/* Peripheral claw slash marks */}
+          <div
+            className="absolute inset-0 opacity-75"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(-32deg, transparent 0px, transparent 58px, rgba(225, 29, 72, 0.28) 59px, rgba(0, 0, 0, 0.88) 64px, transparent 68px)',
+            }}
+          />
         </div>
       )}
     </>

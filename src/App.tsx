@@ -440,6 +440,7 @@ export default function App() {
       caseG,
       radioLed,
       detectSurface,
+      playerLegs,
     } = house;
 
     // Fast Dynamic Horror Lights (1 Hemisphere + 1 Ambient + 1 Active Room Light + 1 Torch SpotLight)
@@ -843,33 +844,41 @@ export default function App() {
       return path;
     };
 
-    // Zombies (3 Archetypes: stalker, brute, crawler with shared materials & low draw calls)
+    // Zombies (Anatomical Skeletal Horror Models: 3D exposed ribs, dorsal spine spikes, sunken skull sockets, split fanged jaw, long bone talons)
     const ZG = {
-      torso: new THREE.CapsuleGeometry(0.19, 0.42, 4, 10),
-      head: new THREE.SphereGeometry(0.14, 14, 12),
-      jaw: new THREE.BoxGeometry(0.1, 0.045, 0.08),
-      crest: new THREE.ConeGeometry(0.05, 0.1, 6),
-      arm: new THREE.CapsuleGeometry(0.055, 0.42, 3, 8),
-      hand: new THREE.SphereGeometry(0.06, 8, 6),
-      leg: new THREE.CapsuleGeometry(0.08, 0.78, 3, 8),
-      eye: new THREE.SphereGeometry(0.022, 6, 6),
+      torso: new THREE.DodecahedronGeometry(0.24, 1),
+      core: new THREE.OctahedronGeometry(0.15, 1),
+      rib: new THREE.TorusGeometry(0.14, 0.018, 6, 10, Math.PI * 0.78),
+      spineSpike: new THREE.ConeGeometry(0.028, 0.14, 5),
+      head: new THREE.DodecahedronGeometry(0.165, 1),
+      jaw: new THREE.BoxGeometry(0.14, 0.06, 0.16),
+      fang: new THREE.ConeGeometry(0.012, 0.06, 5),
+      crest: new THREE.ConeGeometry(0.04, 0.16, 5),
+      arm: new THREE.CylinderGeometry(0.065, 0.045, 0.48, 7),
+      hand: new THREE.DodecahedronGeometry(0.06, 0),
+      claw: new THREE.ConeGeometry(0.016, 0.18, 5),
+      leg: new THREE.CylinderGeometry(0.088, 0.055, 0.78, 7),
+      eye: new THREE.SphereGeometry(0.024, 8, 8),
     };
 
+    const zBoneMat = new THREE.MeshStandardMaterial({ color: 0xd8ccb2, roughness: 0.4, metalness: 0.15 });
+    const zBloodMat = new THREE.MeshStandardMaterial({ color: 0x6e0707, roughness: 0.25, metalness: 0.2 });
+
     const zSkinMats: Record<ZombieArchetype, THREE.MeshStandardMaterial> = {
-      stalker: new THREE.MeshStandardMaterial({ map: TX.skin, color: 0x9aa888, roughness: 0.85 }),
-      brute: new THREE.MeshStandardMaterial({ map: TX.skin, color: 0x8e6b62, roughness: 0.85 }),
-      crawler: new THREE.MeshStandardMaterial({ map: TX.skin, color: 0x7e9478, roughness: 0.85 }),
+      stalker: new THREE.MeshStandardMaterial({ map: TX.skin, bumpMap: TX.skin, bumpScale: 0.045, color: 0x5c534e, roughness: 0.72 }),
+      brute: new THREE.MeshStandardMaterial({ map: TX.skin, bumpMap: TX.skin, bumpScale: 0.055, color: 0x4d3431, roughness: 0.68 }),
+      crawler: new THREE.MeshStandardMaterial({ map: TX.skin, bumpMap: TX.skin, bumpScale: 0.045, color: 0x465244, roughness: 0.72 }),
     };
     const zShirtMats: Record<ZombieArchetype, THREE.MeshStandardMaterial> = {
-      stalker: new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x4a555e, roughness: 0.95 }),
-      brute: new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x5c3a3a, roughness: 0.95 }),
-      crawler: new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x3f5242, roughness: 0.95 }),
+      stalker: new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x261c1c, roughness: 0.88 }),
+      brute: new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x381919, roughness: 0.88 }),
+      crawler: new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x222b24, roughness: 0.88 }),
     };
-    const zPantsMat = new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x2b323d, roughness: 0.95 });
+    const zPantsMat = new THREE.MeshStandardMaterial({ map: TX.cloth, color: 0x161920, roughness: 0.9 });
     const zEyeMats: Record<ZombieArchetype, THREE.MeshBasicMaterial> = {
-      stalker: new THREE.MeshBasicMaterial({ color: 0xffe066 }),
-      brute: new THREE.MeshBasicMaterial({ color: 0xff2a4b }),
-      crawler: new THREE.MeshBasicMaterial({ color: 0xa3e635 }),
+      stalker: new THREE.MeshBasicMaterial({ color: 0xff1e1e }),
+      brute: new THREE.MeshBasicMaterial({ color: 0xff1133 }),
+      crawler: new THREE.MeshBasicMaterial({ color: 0xff4411 }),
     };
 
     interface ZombieActor {
@@ -939,56 +948,95 @@ export default function App() {
         return m;
       };
 
-      const torso = mk(ZG.torso, shirt, 'body');
+      const torso = mk(ZG.torso, skin, 'body');
       torso.position.y = 0.3;
-      torso.scale.set(arch === 'brute' ? 1.28 : 1, 1, arch === 'brute' ? 0.92 : 0.75);
+      torso.scale.set(arch === 'brute' ? 1.28 : 1.08, 1.32, arch === 'brute' ? 0.92 : 0.78);
       spine.add(torso);
 
-      const neck = new THREE.Group();
-      neck.position.y = 0.66;
-      spine.add(neck);
+      const core = new THREE.Mesh(ZG.core, zBloodMat);
+      core.position.set(0, 0.28, 0.08);
+      spine.add(core);
 
-      const head = mk(ZG.head, skin, 'head');
-      head.position.set(0, 0.12, 0.02);
-      head.scale.set(0.95, 1.1, 1);
-      neck.add(head);
-
-      if (arch === 'stalker') {
+      // 5 pairs of exposed 3D bone ribs bursting through chest
+      for (let i = 0; i < 5; i++) {
+        const ry = 0.1 + i * 0.08;
         [-1, 1].forEach((s) => {
-          const cr = mk(ZG.crest, shirt, 'head');
-          cr.position.set(s * 0.1, 0.21, 0.04);
-          cr.rotation.z = -s * 0.55;
-          neck.add(cr);
+          const rib = new THREE.Mesh(ZG.rib, zBoneMat);
+          rib.position.set(s * 0.08, ry, 0.06);
+          rib.rotation.set(Math.PI / 2 + s * 0.12, s * 0.35, 0);
+          spine.add(rib);
         });
       }
 
-      const jaw = mk(ZG.jaw, skin, 'head');
-      jaw.position.set(0, 0.0, 0.1);
+      // 7 jagged dorsal spine spikes along hunched back
+      for (let i = 0; i < 7; i++) {
+        const sp = new THREE.Mesh(ZG.spineSpike, zBoneMat);
+        sp.position.set(0, 0.06 + i * 0.08, -0.19);
+        sp.rotation.x = -Math.PI * 0.58;
+        spine.add(sp);
+      }
+
+      const neck = new THREE.Group();
+      neck.position.y = 0.68;
+      spine.add(neck);
+
+      const head = mk(ZG.head, skin, 'head');
+      head.position.set(0, 0.12, 0.04);
+      head.scale.set(0.95, 1.15, 1.05);
+      neck.add(head);
+
+      [-1, 1].forEach((s) => {
+        const cr = mk(ZG.crest, zBoneMat, 'head');
+        cr.position.set(s * 0.12, 0.24, 0.02);
+        cr.rotation.z = -s * 0.52;
+        neck.add(cr);
+      });
+
+      const jaw = mk(ZG.jaw, zBloodMat, 'head');
+      jaw.position.set(0, -0.02, 0.11);
+      jaw.rotation.x = 0.35;
       neck.add(jaw);
+
+      // Razor 3D fangs on upper and lower jaw
+      for (let fi = -2; fi <= 2; fi++) {
+        const uf = new THREE.Mesh(ZG.fang, zBoneMat);
+        uf.position.set(fi * 0.024, 0.03, 0.17);
+        uf.rotation.x = Math.PI;
+        neck.add(uf);
+        const lf = new THREE.Mesh(ZG.fang, zBoneMat);
+        lf.position.set(fi * 0.022, 0.03, 0.06);
+        jaw.add(lf);
+      }
 
       const eyes = [-1, 1].map((s) => {
         const e = new THREE.Mesh(ZG.eye, eyeM);
-        e.position.set(s * 0.05, 0.15, 0.125);
+        e.position.set(s * 0.058, 0.15, 0.155);
         neck.add(e);
         return e;
       });
 
       const armP = [-1, 1].map((s) => {
         const p = new THREE.Group();
-        p.position.set(s * (arch === 'brute' ? 0.31 : 0.26), 0.55, 0);
+        p.position.set(s * (arch === 'brute' ? 0.33 : 0.28), 0.55, 0);
         spine.add(p);
-        const a = mk(ZG.arm, shirt, 'limb');
+        const a = mk(ZG.arm, skin, 'limb');
         a.position.y = -0.27;
         p.add(a);
-        const h = mk(ZG.hand, skin, 'limb');
-        h.position.y = -0.56;
+        const h = mk(ZG.hand, zBloodMat, 'limb');
+        h.position.y = -0.54;
         p.add(h);
+        for (let ci = -1; ci <= 1; ci++) {
+          const cl = new THREE.Mesh(ZG.claw, zBoneMat);
+          cl.position.set(ci * 0.024, -0.68, 0.08);
+          cl.rotation.x = Math.PI * 0.84;
+          p.add(cl);
+        }
         return p;
       });
 
       const legP = [-1, 1].map((s) => {
         const p = new THREE.Group();
-        p.position.set(s * 0.1, 0, 0);
+        p.position.set(s * 0.12, 0, 0);
         hips.add(p);
         const l = mk(ZG.leg, pants, 'limb');
         l.position.y = -0.47;
@@ -1353,23 +1401,40 @@ export default function App() {
         saveAtKeyPoint('slot1', `День ${S.day} (${formatGameClock(S.t)}) · Дневник в спальне`);
       },
     });
+    // Desert Eagle & Sniper Rifle are now inside the Gun Shop ("ОРУЖЕЙКА") next to the Grocery Store!
     addIA({
       id: 'deagle',
-      x: 2.95,
-      z: 1.15,
-      r: 1.05,
+      x: 11.4,
+      z: 28.0,
+      r: 1.85,
       prop: gunProp.deagle,
-      label: () => 'Взять Desert Eagle и патроны',
-      act: (a) => giveLoot(a, { weapon: 'deagle', ammo: { deagle: 21 }, powder: 1 }),
+      label: () => 'Взять Desert Eagle (.50 AE) и 21 патрон [Оружейка]',
+      act: (a) => giveLoot(a, { weapon: 'deagle', ammo: { deagle: 21 }, powder: 2 }),
     });
     addIA({
       id: 'sniper',
-      x: 1.45,
-      z: 7.0,
-      r: 1.15,
+      x: 15.6,
+      z: 28.0,
+      r: 1.85,
       prop: caseG,
-      label: () => 'Открыть оружейный кейс',
-      act: (a) => giveLoot(a, { weapon: 'sniper', ammo: { sniper: 10 }, scrap: 2 }),
+      label: () => 'Открыть кейс со Снайперской винтовкой [Оружейка]',
+      act: (a) => giveLoot(a, { weapon: 'sniper', ammo: { sniper: 15 }, scrap: 2 }),
+    });
+    addIA({
+      id: 'armory_crate',
+      x: 13.5,
+      z: 31.8,
+      r: 2.1,
+      label: () => 'Вскрыть армейский ящик боеприпасов [Оружейка]',
+      act: (a) => giveLoot(a, { ammo: { shotgun: 15, deagle: 14, sniper: 10 }, powder: 3, scrap: 3 }),
+    });
+    addIA({
+      id: 'grocery_store_shelf',
+      x: 3.5,
+      z: 29.0,
+      r: 2.5,
+      label: () => 'Собрать продукты, воду и батарейки [Магазин 24]',
+      act: (a) => giveLoot(a, { food: 4, water: 4, batteries: 2, cloth: 2 }),
     });
     addIA({
       id: 'toolbox',
@@ -1422,7 +1487,7 @@ export default function App() {
       r: 1.05,
       prop: loot.dresser,
       label: () => 'Обыскать комод',
-      act: (a) => giveLoot(a, { water: 1, batteries: 1, cloth: 2, ammo: { deagle: 7 } }),
+      act: (a) => giveLoot(a, { water: 1, batteries: 1, cloth: 2 }),
     });
     addIA({
       id: 'shelf',
@@ -1431,15 +1496,29 @@ export default function App() {
       r: 1.05,
       prop: loot.shelf,
       label: () => 'Обыскать полку',
-      act: (a) => giveLoot(a, { powder: 2, scrap: 1, ammo: { shotgun: 6, deagle: 7 } }),
+      act: (a) => giveLoot(a, { powder: 2, scrap: 1 }),
     });
+    let doorManualOpen = false;
     addIA({
       id: 'door',
       x: 5.5,
-      z: 11.2,
-      r: 1.4,
-      label: () => 'Выйти на вылазку в магазин (08:00–17:00)',
-      act: () => tripToStore(),
+      z: 11.8,
+      r: 2.2,
+      label: () =>
+        doorManualOpen || !doorCol.on
+          ? 'Закрыть входную дверь [Улица: Магазин 24 и Оружейка прямо]'
+          : 'Открыть входную дверь (Выход на улицу в Магазин и Оружейку)',
+      act: () => {
+        doorManualOpen = !doorManualOpen;
+        doorCol.on = !doorManualOpen;
+        sfx.click();
+        toast(
+          doorManualOpen
+            ? 'Дверь открыта! Идите вперёд на улицу в Продуктовый магазин и Оружейку!'
+            : 'Входная дверь закрыта',
+          2600
+        );
+      },
     });
 
     let curIA: Interactable | null = null;
@@ -1739,8 +1818,15 @@ export default function App() {
       const hid = isHidden();
       const inHouse = z.pos.z < 12.2 && z.pos.z > -0.3 && z.state !== 'outside';
 
-      const hearArchetypeMul = z.archetype === 'stalker' ? 1.3 : z.archetype === 'brute' ? 0.85 : 1.05;
-      const speedArchetypeMul = z.archetype === 'crawler' ? 1.22 : z.archetype === 'brute' ? 0.86 : 1.0;
+      const hourOfDay = (6 + S.t) % 24;
+      const isNightHardcore = hourOfDay >= 20 || hourOfDay < 6;
+      const isRainingNow = (hourOfDay >= 13 && hourOfDay < 17) || hourOfDay >= 21 || hourOfDay < 2;
+      const dayNightHearMul = (isNightHardcore ? 1.38 : 0.75) * (isRainingNow ? 0.72 : 1.0);
+      const dayNightSpeedMul = isNightHardcore ? 1.32 : 0.78;
+      const hearArchetypeMul =
+        (z.archetype === 'stalker' ? 1.3 : z.archetype === 'brute' ? 0.85 : 1.05) * dayNightHearMul;
+      const speedArchetypeMul =
+        (z.archetype === 'crawler' ? 1.22 : z.archetype === 'brute' ? 0.86 : 1.0) * dayNightSpeedMul;
 
       // Check active Noise Decoys first!
       let luredByDecoy = false;
@@ -2483,8 +2569,102 @@ export default function App() {
       if (sr.waterVal) sr.waterVal.textContent = `${Math.round(S.water)}%`;
       if (sr.breathBar) sr.breathBar.style.width = `${clamp(P.breath, 0, 100)}%`;
 
-      const bpm = Math.round(64 + P.panic * 112 + (S.raid ? 16 : 0));
-      if (sr.pulseVal) sr.pulseVal.textContent = `${bpm} BPM`;
+      const pantLevel = clamp(Math.max(P.panic * 1.15, (62 - P.breath) / 62), 0, 1);
+      const bpm = Math.round(64 + P.panic * 112 + (100 - P.breath) * 0.45 + (S.raid ? 16 : 0));
+      const beatFreqHz = bpm / 60;
+      const beatPhase = (performance.now() * 0.001 * beatFreqHz) % 1;
+      const systolicPulse = Math.exp(-Math.pow((beatPhase - 0.18) * 9.5, 2));
+
+      if (sr.pulseVal) {
+        sr.pulseVal.textContent = `${bpm} BPM`;
+        sr.pulseVal.style.color = bpm > 135 ? '#fb7185' : bpm > 98 ? '#fbbf24' : '#34d399';
+      }
+      if (sr.pulseHeart) {
+        const hScale = 1 + systolicPulse * (0.24 + pantLevel * 0.38);
+        sr.pulseHeart.style.transform = `scale(${hScale.toFixed(2)})`;
+      }
+      if (sr.pulseCard) {
+        sr.pulseCard.style.borderColor =
+          pantLevel > 0.55
+            ? 'rgba(244,63,94,0.85)'
+            : pantLevel > 0.25
+            ? 'rgba(251,191,36,0.65)'
+            : 'rgba(16,185,129,0.4)';
+      }
+      if (sr.pantBadge) {
+        if (pantLevel > 0.48 || P.gasp > 0) {
+          sr.pantBadge.textContent = 'ОТДЫШКА!';
+          sr.pantBadge.style.color = '#fda4af';
+          sr.pantBadge.style.borderColor = 'rgba(244,63,94,0.7)';
+          sr.pantBadge.style.backgroundColor = 'rgba(225,29,72,0.28)';
+        } else if (pantLevel > 0.2) {
+          sr.pantBadge.textContent = 'ЧАСТЫЙ';
+          sr.pantBadge.style.color = '#fde68a';
+          sr.pantBadge.style.borderColor = 'rgba(251,191,36,0.55)';
+          sr.pantBadge.style.backgroundColor = 'rgba(245,158,11,0.2)';
+        } else {
+          sr.pantBadge.textContent = 'НОРМА';
+          sr.pantBadge.style.color = '#6ee7b7';
+          sr.pantBadge.style.borderColor = 'rgba(16,185,129,0.35)';
+          sr.pantBadge.style.backgroundColor = 'rgba(16,185,129,0.14)';
+        }
+      }
+
+      // Draw Live Real-Time ECG P-Q-R-S-T Cardiogram Waveform
+      if (sr.pulseEcgCanvas) {
+        const cvs = sr.pulseEcgCanvas;
+        const ctx = cvs.getContext('2d');
+        if (ctx) {
+          const w = cvs.width;
+          const h = cvs.height;
+          ctx.clearRect(0, 0, w, h);
+          ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.55);
+          ctx.lineTo(w, h * 0.55);
+          ctx.stroke();
+
+          const strokeCol = bpm > 135 ? '#f43f5e' : bpm > 98 ? '#fbbf24' : '#34d399';
+          ctx.strokeStyle = strokeCol;
+          ctx.lineWidth = 1.65;
+          ctx.beginPath();
+          const nowSec = performance.now() * 0.001;
+          for (let x = 0; x < w; x++) {
+            const tSample = nowSec - ((w - x) / w) * (1.65 / Math.max(0.8, beatFreqHz * 0.65));
+            const ph = ((tSample * beatFreqHz) % 1 + 1) % 1;
+            // Synthetic P-Q-R-S-T complex
+            const pWave = 0.15 * Math.exp(-Math.pow((ph - 0.12) / 0.035, 2));
+            const qDip = -0.18 * Math.exp(-Math.pow((ph - 0.2) / 0.014, 2));
+            const rSpike = (0.78 + pantLevel * 0.25) * Math.exp(-Math.pow((ph - 0.23) / 0.016, 2));
+            const sDip = -0.28 * Math.exp(-Math.pow((ph - 0.265) / 0.016, 2));
+            const tWave = 0.22 * Math.exp(-Math.pow((ph - 0.42) / 0.048, 2));
+            const tremor = pantLevel > 0.4 ? Math.sin(x * 0.9 + nowSec * 28) * 0.05 * pantLevel : 0;
+            const yNorm = pWave + qDip + rSpike + sDip + tWave + tremor;
+            const py = clamp(h * 0.58 - yNorm * (h * 0.48), 2, h - 2);
+            if (x === 0) ctx.moveTo(x, py);
+            else ctx.lineTo(x, py);
+          }
+          ctx.stroke();
+        }
+      }
+
+      // Visual Screen Pulse & Shortness-of-Breath ("Отдышка") Frost Mist
+      if (sr.screenPulseOverlay) {
+        const pulseOp =
+          pantLevel > 0.14
+            ? clamp(pantLevel * 0.42 + systolicPulse * pantLevel * 0.48, 0, 0.78)
+            : 0;
+        sr.screenPulseOverlay.style.opacity = pulseOp.toFixed(2);
+      }
+      if (sr.breathMistOverlay) {
+        const breathCycle = 0.5 + 0.5 * Math.sin(performance.now() * 0.001 * (2.2 + pantLevel * 4.5));
+        const mistOp =
+          pantLevel > 0.28 || P.gasp > 0
+            ? clamp((pantLevel * 0.55 + (P.gasp > 0 ? 0.35 : 0)) * breathCycle, 0, 0.75)
+            : 0;
+        sr.breathMistOverlay.style.opacity = mistOp.toFixed(2);
+      }
 
       if (sr.doorBar) sr.doorBar.style.width = `${clamp(S.doorHp, 0, 100)}%`;
 
@@ -2496,6 +2676,16 @@ export default function App() {
         } else {
           ammoElRef.current.textContent = '';
         }
+      }
+
+      if (clockElRef.current) {
+        const hNow = (6 + S.t) % 24;
+        const isNight = hNow >= 20 || hNow < 6;
+        const isRain = (hNow >= 13 && hNow < 17) || hNow >= 21 || hNow < 2;
+        clockElRef.current.textContent = `ДЕНЬ ${S.day} · ${formatGameClock(S.t)} · ${
+          isNight ? 'НОЧЬ·ХАРДКОР' : 'ДЕНЬ·ЛАЙТ'
+        }${isRain ? ' · 🌧 ДОЖДЬ' : ''}`;
+        clockElRef.current.style.color = isNight ? '#fda4af' : '#fde68a';
       }
 
       const scoped = S.aim && S.cur === 'sniper' && !S.hidden;
@@ -2578,9 +2768,11 @@ export default function App() {
       }
       hungerT -= simDt;
 
-      // Dynamic Lighting & Occasional Thunderstorms at Night
+      // Dynamic Lighting & Scheduled Outdoor Rain / Thunderstorms (13:00-17:00 and 21:00-02:00)
       const dl = daylight();
-      if (dl < 0.25 && Math.random() < simDt * 0.015 && S.lightningT <= 0) {
+      const hDay = (6 + S.t) % 24;
+      const rainActive = (hDay >= 13 && hDay < 17) || hDay >= 21 || hDay < 2;
+      if ((dl < 0.25 || rainActive) && Math.random() < simDt * 0.022 && S.lightningT <= 0) {
         triggerLightning();
       }
       applyDynamicHorrorLighting(dl, simDt);
@@ -2609,7 +2801,7 @@ export default function App() {
         }
       }
 
-      // Raids & Door Integrity
+      // Raids & Door Integrity + Automatic Proximity & Manual Door Opening
       if (!S.raid && S.raidPlan.length && S.t >= S.raidPlan[0]) {
         S.raidPlan.shift();
         startRaid();
@@ -2627,7 +2819,13 @@ export default function App() {
           breakDoor();
         }
       }
-      if (doorBroken && doorAnim < 1) {
+      if (!doorBroken && !S.raid) {
+        const distToFrontDoor = Math.hypot(P.x - 5.5, P.z - 11.95);
+        const shouldOpenDoor = doorManualOpen || distToFrontDoor < 2.25;
+        doorCol.on = !shouldOpenDoor;
+        const targetRotY = shouldOpenDoor ? -1.48 : 0;
+        doorPivot.rotation.y = lerp(doorPivot.rotation.y, targetRotY, Math.min(1, simDt * 8));
+      } else if (doorBroken && doorAnim < 1) {
         doorAnim = Math.min(1, doorAnim + simDt * 2.2);
         const k = ease(doorAnim);
         doorPivot.rotation.y = -1.3 * k;
@@ -2699,7 +2897,11 @@ export default function App() {
         mx /= ml;
         mz /= ml;
       }
-      const run = (inp.run || keys.ShiftLeft || keys.ShiftRight) && mag > 0.1 && P.crouchT < 0.5;
+      const run = (inp.run || keys.ShiftLeft || keys.ShiftRight) && mag > 0.1 && P.crouchT < 0.5 && P.breath > 8;
+      if (run && !holding) {
+        P.breath = Math.max(0, P.breath - 28 * simDt);
+        P.panic = clamp(P.panic + 0.08 * simDt, 0, 1);
+      }
       let moving = false;
 
       if (!hid && P.hideT <= 0) {
@@ -2715,9 +2917,23 @@ export default function App() {
         const bx = P.x;
         const bz = P.z;
         const pp = { x: P.x, z: P.z };
+        const pdDoor = Math.hypot(P.x - 5.5, P.z - 12.0);
+        if (pdDoor < 2.15 && !S.hidden && !S.raid) {
+          doorManualOpen = true;
+        }
+        const isDoorOpen = doorBroken || doorManualOpen || pdDoor < 2.15;
+        doorCol.on = !isDoorOpen;
+        if (!doorBroken) {
+          doorPivot.rotation.y = lerp(doorPivot.rotation.y, isDoorOpen ? -1.35 : 0, Math.min(1, simDt * 8));
+        }
         moveCol(pp, vx * simDt, vz * simDt, 0.27);
-        P.x = clamp(pp.x, 0.3, 10.7);
-        P.z = clamp(pp.z, 0.3, 11.7);
+        if (pp.z > 11.5 || P.z > 11.5) {
+          P.x = clamp(pp.x, -0.8, 17.6);
+          P.z = clamp(pp.z, 0.3, 33.6);
+        } else {
+          P.x = clamp(pp.x, 0.3, 10.7);
+          P.z = clamp(pp.z, 0.3, isDoorOpen ? 33.6 : 11.7);
+        }
         P.moved = Math.hypot(P.x - bx, P.z - bz) / (simDt || 0.016);
         moving = P.moved > 0.3;
 
@@ -2784,12 +3000,18 @@ export default function App() {
       P.noise = noiseRes.db;
       P.zone = noiseRes.zone;
 
-      // Heartbeat
+      // Heartbeat & Shortness of Breath ("Отдышка") Audio-Visual Sync
       beatT -= simDt;
-      const hr = lerp(1.0, 0.36, Math.max(P.panic, sick * 0.7, S.raid ? 0.28 : 0));
-      if (beatT <= 0 && (P.panic > 0.18 || sick > 0.3)) {
-        sfx.beat(0.4 + P.panic * 0.6);
-        if (P.panic > 0.55) vib(22);
+      const pantFactor = clamp(Math.max(P.panic, (60 - P.breath) / 60), 0, 1);
+      const hr = lerp(0.98, 0.32, Math.max(pantFactor, sick * 0.7, S.raid ? 0.28 : 0));
+      if (beatT <= 0 && (pantFactor > 0.16 || sick > 0.3)) {
+        sfx.beat(0.42 + pantFactor * 0.62);
+        if (pantFactor > 0.32 || P.gasp > 0) {
+          sfx.pant(pantFactor);
+          // Subtle chest-heave camera pitch during heavy panting ("отдышка")
+          P.kick += (0.008 + pantFactor * 0.014) * (Math.random() > 0.5 ? 1 : -1);
+        }
+        if (pantFactor > 0.55) vib(22);
         beatT = hr;
       }
 
@@ -2984,6 +3206,20 @@ export default function App() {
       vCam.updateProjectionMatrix();
 
       sfx.setOcclusion(isHidden(), simDt);
+
+      // First-Person 3D Player Legs Update (visible when looking down)
+      if (playerLegs) {
+        if (S.hidden || S.mode !== 'playing') {
+          playerLegs.group.visible = false;
+        } else {
+          playerLegs.group.visible = true;
+          playerLegs.group.position.set(P.x, P.y - P.crouchT * 0.28, P.z);
+          playerLegs.group.rotation.y = P.yaw;
+          const legSwing = P.moving ? Math.sin(P.bob * 1.9) * (P.run ? 0.52 : 0.34) : 0;
+          playerLegs.left.rotation.x = legSwing;
+          playerLegs.right.rotation.x = -legSwing;
+        }
+      }
 
       // Viewmodel Update
       if (vm.model && vm.cur) {
@@ -3307,8 +3543,8 @@ export default function App() {
           S.inv.traps--;
           const fx = -Math.sin(P.yaw);
           const fz = -Math.cos(P.yaw);
-          const tx = clamp(P.x + fx * 0.75, 0.5, 10.5);
-          const tz = clamp(P.z + fz * 0.75, 0.5, 11.5);
+          const tx = clamp(P.x + fx * 0.75, -11, 22);
+          const tz = clamp(P.z + fz * 0.75, 0.5, 33.5);
           const mesh = buildBearTrapMesh();
           mesh.position.set(tx, 0, tz);
           scene.add(mesh);
@@ -3324,8 +3560,8 @@ export default function App() {
           S.inv.decoys--;
           const fx = -Math.sin(P.yaw);
           const fz = -Math.cos(P.yaw);
-          const dx = clamp(P.x + fx * 2.4, 0.6, 10.4);
-          const dz = clamp(P.z + fz * 2.4, 0.6, 11.4);
+          const dx = clamp(P.x + fx * 2.4, -11, 22);
+          const dz = clamp(P.z + fz * 2.4, 0.6, 33.5);
           const mesh = buildDecoyMesh();
           mesh.position.set(dx, 0, dz);
           scene.add(mesh);
@@ -3340,8 +3576,8 @@ export default function App() {
           S.inv.flares--;
           const fx = -Math.sin(P.yaw);
           const fz = -Math.cos(P.yaw);
-          const lx = clamp(P.x + fx * 1.4, 0.6, 10.4);
-          const lz = clamp(P.z + fz * 1.4, 0.6, 11.4);
+          const lx = clamp(P.x + fx * 1.4, -11, 22);
+          const lz = clamp(P.z + fz * 1.4, 0.6, 33.5);
           const mesh = buildFlareMesh();
           mesh.position.set(lx, 0, lz);
           const light = new THREE.PointLight(0xff2a4b, 2.8, 10, 1.5);
@@ -3466,8 +3702,11 @@ export default function App() {
           S.inv.adrenaline = Math.max(1, S.inv.adrenaline || 0);
           engineApiRef.current?.useConsumable('adrenaline');
         } else if (act === 'test_heartbeat') {
-          P.panic = 0.85;
+          P.panic = 0.92;
+          P.breath = 22;
           sfx.beat(0.95);
+          sfx.pant(0.9);
+          updateDomHud(0.1);
         } else if (act === 'preset_nightmare_gfx') {
           setCfg((prev) => ({ ...prev, darknessLevel: 0.9, graphicsModIntensity: 1.0 }));
         } else if (act === 'lightning') {
@@ -3718,7 +3957,16 @@ export default function App() {
             }}
           />
 
-          {/* 2. Top-Right Pure Icon Utility Controls (Save, Inventory/Craft, Pause/Settings — Zero Text!) */}
+          {/* 2. Top-Center Day/Night & Scheduled Rain Status Badge */}
+          <div
+            ref={clockElRef}
+            data-testid="day-night-clock-badge"
+            className="fixed top-2 left-1/2 -translate-x-1/2 z-30 px-3 py-1 rounded-xl bg-[#07080C]/92 border border-white/25 font-mono text-[11px] sm:text-xs font-extrabold tracking-wider text-amber-200 shadow-[0_4px_16px_rgba(0,0,0,0.85)]"
+          >
+            ДЕНЬ 1 · 06:00 · ДЕНЬ·ЛАЙТ
+          </div>
+
+          {/* 2B. Top-Right High-Visibility Icon Utility Controls */}
           <div className="fixed top-2 right-2 z-30 flex items-center gap-1.5 pointer-events-auto">
             <button
               type="button"
@@ -3729,9 +3977,9 @@ export default function App() {
               }}
               data-testid="quick-save-btn"
               aria-label="Сохранить"
-              className="w-9 h-9 rounded-xl bg-[#0A0C10]/85 hover:bg-emerald-500/25 border border-white/15 flex items-center justify-center text-emerald-300 shadow-lg active:scale-90 cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-[#0A0C10]/95 hover:bg-emerald-500/30 border-2 border-emerald-400/55 flex items-center justify-center text-emerald-300 shadow-[0_4px_14px_rgba(0,0,0,0.9)] active:scale-90 cursor-pointer"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-5 h-5 drop-shadow-[0_0_5px_rgba(52,211,153,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
                 <polyline points="17 21 17 13 7 13 7 21" />
                 <polyline points="7 3 7 8 15 8" />
@@ -3747,9 +3995,9 @@ export default function App() {
                 engineApiRef.current?.setPausedState(next);
               }}
               aria-label="Открыть инвентарь и крафт"
-              className="w-9 h-9 rounded-xl bg-[#0A0C10]/85 hover:bg-amber-500/25 border border-white/15 flex items-center justify-center text-amber-300 shadow-lg active:scale-90 cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-[#0A0C10]/95 hover:bg-amber-500/30 border-2 border-amber-400/55 flex items-center justify-center text-amber-300 shadow-[0_4px_14px_rgba(0,0,0,0.9)] active:scale-90 cursor-pointer"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-5 h-5 drop-shadow-[0_0_5px_rgba(251,191,36,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
               </svg>
             </button>
@@ -3765,19 +4013,19 @@ export default function App() {
               }}
               data-testid="open-settings-btn"
               aria-label="Настройки и пауза"
-              className="w-9 h-9 rounded-xl bg-[#0A0C10]/85 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-[#0A0C10]/95 hover:bg-white/20 border-2 border-white/45 flex items-center justify-center text-white shadow-[0_4px_14px_rgba(0,0,0,0.9)] active:scale-90 cursor-pointer"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-5 h-5 drop-shadow-[0_0_5px_rgba(255,255,255,0.85)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <rect x="6" y="4" width="4" height="16" rx="1" />
                 <rect x="14" y="4" width="4" height="16" rx="1" />
               </svg>
             </button>
           </div>
 
-          {/* 3. Center Crosshair & Hitmarker (Zero Text Clutter!) */}
+          {/* 3. Center Crosshair & Hitmarker */}
           <div ref={toastElRef} className="hidden" />
           {!isHiddenState && (
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full border border-white/80 shadow-[0_0_4px_#000]" />
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-[0_0_6px_#000]" />
           )}
           <div
             ref={hitElRef}
@@ -3787,40 +4035,42 @@ export default function App() {
             <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-rose-500" />
           </div>
 
-          {/* 4. Contextual Interact Icon Button (Pure Icon, No Text Banner!) */}
+          {/* 4. Contextual Interact Icon Button */}
           {interactPrompt && (
-            <div className="fixed right-[25vw] top-[44vh] flex items-center justify-center pointer-events-auto">
+            <div className="fixed right-[24vw] top-[44vh] flex flex-col items-center gap-1 pointer-events-auto">
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.performInteract()}
                 data-testid="interact-btn"
-                className="w-12 h-12 rounded-full bg-amber-500/40 hover:bg-amber-500/60 border-2 border-amber-400 flex items-center justify-center text-white shadow-xl active:scale-90 transition-transform cursor-pointer"
+                className="px-4 py-2.5 rounded-2xl bg-amber-500/85 hover:bg-amber-400 border-2 border-white flex items-center gap-2 text-black font-extrabold text-xs shadow-[0_0_24px_rgba(245,158,11,0.8)] active:scale-90 transition-transform cursor-pointer"
                 aria-label={interactPrompt}
               >
-                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6">
                   <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" />
                   <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2" />
                   <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" />
                   <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
                 </svg>
+                <span className="max-w-[180px] truncate">{interactPrompt}</span>
               </button>
             </div>
           )}
 
-          {/* 5. Bottom-Center Pure Icon Quick Bar (Food, Water, Torch, Flare, Trap, Decoy) */}
+          {/* 5. Bottom-Center High-Visibility Icon Quick Bar */}
           {!isHiddenState && (
-            <div className="fixed bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1 rounded-2xl bg-[#0A0C10]/85 border border-white/15 pointer-events-auto shadow-xl">
+            <div className="fixed bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-[#07080C]/95 border-2 border-white/25 pointer-events-auto shadow-[0_8px_28px_rgba(0,0,0,0.95)]">
               <button
                 type="button"
                 onClick={() => engineApiRef.current?.useConsumable('food')}
                 aria-label="Съесть консервы"
-                className="relative w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-amber-300 active:scale-90 cursor-pointer"
+                className="relative w-11 h-11 rounded-xl bg-white/10 hover:bg-amber-500/25 border border-amber-400/50 flex flex-col items-center justify-center text-amber-300 active:scale-90 cursor-pointer"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <rect x="5" y="4" width="14" height="16" rx="2" />
                   <line x1="5" y1="9" x2="19" y2="9" />
                 </svg>
-                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                <span className="text-[8px] font-extrabold text-white leading-none mt-0.5">ЕДА</span>
+                <span className="absolute -top-1.5 -right-1.5 px-1.5 rounded-full bg-black border border-amber-400 font-mono text-[10px] font-extrabold text-amber-300">
                   {uiSnapshot.inv.food}
                 </span>
               </button>
@@ -3829,12 +4079,13 @@ export default function App() {
                 type="button"
                 onClick={() => engineApiRef.current?.useConsumable('water')}
                 aria-label="Выпить воду"
-                className="relative w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-sky-300 active:scale-90 cursor-pointer"
+                className="relative w-11 h-11 rounded-xl bg-white/10 hover:bg-sky-500/25 border border-sky-400/50 flex flex-col items-center justify-center text-sky-300 active:scale-90 cursor-pointer"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(56,189,248,0.8)]" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
                 </svg>
-                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                <span className="text-[8px] font-extrabold text-white leading-none mt-0.5">ВОДА</span>
+                <span className="absolute -top-1.5 -right-1.5 px-1.5 rounded-full bg-black border border-sky-400 font-mono text-[10px] font-extrabold text-sky-300">
                   {uiSnapshot.inv.water}
                 </span>
               </button>
@@ -3844,15 +4095,16 @@ export default function App() {
                 onClick={() => engineApiRef.current?.toggleTorch()}
                 data-testid="hud-torch-btn"
                 aria-label="Фонарик"
-                className={`w-9 h-9 rounded-xl border flex items-center justify-center active:scale-90 cursor-pointer ${
+                className={`w-11 h-11 rounded-xl border-2 flex flex-col items-center justify-center active:scale-90 cursor-pointer ${
                   uiSnapshot.torchOn
-                    ? 'bg-amber-500 text-black border-amber-300'
-                    : 'bg-white/5 text-white border-white/10 hover:bg-white/15'
+                    ? 'bg-amber-500 text-black border-white shadow-[0_0_14px_rgba(245,158,11,0.8)]'
+                    : 'bg-white/10 text-white border-white/35 hover:bg-white/20'
                 }`}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M8 3h8l-1 5H9zM9 8h6v3l-1 2v8h-4v-8l-1-2z" />
                 </svg>
+                <span className="text-[8px] font-extrabold leading-none mt-0.5">СВЕТ</span>
               </button>
 
               <button
@@ -3860,12 +4112,13 @@ export default function App() {
                 onClick={() => engineApiRef.current?.useDefenseTool('flare')}
                 data-testid="hud-flare-btn"
                 aria-label="Зажечь фальшфейер"
-                className="relative w-9 h-9 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/45 flex items-center justify-center text-rose-300 active:scale-90 cursor-pointer"
+                className="relative w-11 h-11 rounded-xl bg-rose-500/25 hover:bg-rose-500/40 border border-rose-400/60 flex flex-col items-center justify-center text-rose-300 active:scale-90 cursor-pointer"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(251,113,133,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 2c1 3 4 5 4 9a4 4 0 1 1-8 0c0-4 3-6 4-9z" />
                 </svg>
-                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                <span className="text-[8px] font-extrabold text-white leading-none mt-0.5">ФАЕР</span>
+                <span className="absolute -top-1.5 -right-1.5 px-1.5 rounded-full bg-black border border-rose-400 font-mono text-[10px] font-extrabold text-rose-300">
                   {uiSnapshot.inv.flares || 0}
                 </span>
               </button>
@@ -3875,13 +4128,14 @@ export default function App() {
                 onClick={() => engineApiRef.current?.useDefenseTool('trap')}
                 data-testid="hud-trap-btn"
                 aria-label="Поставить капкан"
-                className="relative w-9 h-9 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 flex items-center justify-center text-amber-300 active:scale-90 cursor-pointer"
+                className="relative w-11 h-11 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/60 flex flex-col items-center justify-center text-amber-300 active:scale-90 cursor-pointer"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <circle cx="12" cy="12" r="8" />
                   <path d="M8 12l2-2 2 2 2-2 2 2" />
                 </svg>
-                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                <span className="text-[8px] font-extrabold text-white leading-none mt-0.5">КАПКАН</span>
+                <span className="absolute -top-1.5 -right-1.5 px-1.5 rounded-full bg-black border border-amber-400 font-mono text-[10px] font-extrabold text-amber-300">
                   {uiSnapshot.inv.traps}
                 </span>
               </button>
@@ -3891,14 +4145,15 @@ export default function App() {
                 onClick={() => engineApiRef.current?.useDefenseTool('decoy')}
                 data-testid="hud-decoy-btn"
                 aria-label="Бросить приманку"
-                className="relative w-9 h-9 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 flex items-center justify-center text-emerald-300 active:scale-90 cursor-pointer"
+                className="relative w-11 h-11 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-400/60 flex flex-col items-center justify-center text-emerald-300 active:scale-90 cursor-pointer"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(52,211,153,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <circle cx="12" cy="13" r="7" />
                   <polyline points="12 10 12 13 14 15" />
                   <path d="M5 3L2 6M22 6l-3-3" />
                 </svg>
-                <span className="absolute -top-1 -right-1 px-1 rounded-full bg-black/90 border border-white/20 font-mono text-[9px] font-bold text-white">
+                <span className="text-[8px] font-extrabold text-white leading-none mt-0.5">ШУМ</span>
+                <span className="absolute -top-1.5 -right-1.5 px-1.5 rounded-full bg-black border border-emerald-400 font-mono text-[10px] font-extrabold text-emerald-300">
                   {uiSnapshot.inv.decoys}
                 </span>
               </button>
@@ -3913,24 +4168,25 @@ export default function App() {
               onPointerUp={() => engineApiRef.current?.setBreathHeld(false)}
               onPointerCancel={() => engineApiRef.current?.setBreathHeld(false)}
               aria-label="Задержать дыхание"
-              className="fixed bottom-4 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full bg-cyan-500/30 hover:bg-cyan-500/45 border-2 border-cyan-400 text-cyan-200 flex items-center justify-center pointer-events-auto shadow-2xl active:scale-90 cursor-pointer"
+              className="fixed bottom-4 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-cyan-500/40 hover:bg-cyan-500/55 border-2 border-cyan-300 text-white flex flex-col items-center justify-center pointer-events-auto shadow-2xl active:scale-90 cursor-pointer"
             >
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2" />
               </svg>
+              <span className="text-[8px] font-extrabold">ДЫХАНИЕ</span>
             </button>
           )}
 
-          {/* 6. Right-Side Pure Icon Combat & Movement Cluster (Zero Text!) */}
+          {/* 6. Right-Side High-Visibility Icon Combat & Movement Cluster */}
           {!isHiddenState && (
             <>
               <div
                 ref={ammoElRef}
-                className="fixed right-3 bottom-2 text-right font-mono font-bold text-sm text-white/90 tabular-nums drop-shadow-[0_2px_6px_#000]"
+                className="fixed right-3 bottom-2 text-right font-mono font-extrabold text-base text-amber-300 tabular-nums drop-shadow-[0_2px_8px_#000]"
               />
 
               <div
-                className="fixed right-2.5 lg:right-4 top-[52px] lg:top-1/2 lg:-translate-y-1/2 flex flex-col items-end gap-2 pointer-events-auto"
+                className="fixed right-2.5 lg:right-4 top-[54px] lg:top-1/2 lg:-translate-y-1/2 flex flex-col items-end gap-2 pointer-events-auto"
                 style={{
                   opacity: cfg.uiOpacity,
                 }}
@@ -3940,27 +4196,29 @@ export default function App() {
                     type="button"
                     onClick={() => engineApiRef.current?.swapWeapon()}
                     aria-label="Сменить оружие"
-                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
+                    className="w-12 h-12 rounded-2xl bg-[#0B0D13]/95 border-2 border-white/40 flex flex-col items-center justify-center text-white shadow-[0_4px_14px_rgba(0,0,0,0.9)] active:scale-90 cursor-pointer"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="17 1 21 5 17 9" />
                       <path d="M3 11V9a4 4 0 0 1 4-4h14" />
                       <polyline points="7 23 3 19 7 15" />
                       <path d="M21 13v2a4 4 0 0 1-4 4H3" />
                     </svg>
+                    <span className="text-[8px] font-extrabold mt-0.5">ОРУЖ</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.reloadWeapon()}
                     aria-label="Перезарядить оружие"
-                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
+                    className="w-12 h-12 rounded-2xl bg-[#0B0D13]/95 border-2 border-white/40 flex flex-col items-center justify-center text-white shadow-[0_4px_14px_rgba(0,0,0,0.9)] active:scale-90 cursor-pointer"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M21 2v6h-6" />
                       <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
                       <path d="M3 22v-6h6" />
                       <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
                     </svg>
+                    <span className="text-[8px] font-extrabold mt-0.5">ПЕРЕЗ</span>
                   </button>
                 </div>
 
@@ -3969,15 +4227,16 @@ export default function App() {
                     type="button"
                     onClick={() => engineApiRef.current?.toggleAim()}
                     aria-label="Прицелиться"
-                    className="w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
+                    className="w-12 h-12 rounded-2xl bg-[#0B0D13]/95 border-2 border-amber-400/60 flex flex-col items-center justify-center text-amber-300 shadow-[0_4px_14px_rgba(0,0,0,0.9)] active:scale-90 cursor-pointer"
                   >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <circle cx="12" cy="12" r="8" />
                       <line x1="12" y1="2" x2="12" y2="6" />
                       <line x1="12" y1="18" x2="12" y2="22" />
                       <line x1="2" y1="12" x2="6" y2="12" />
                       <line x1="18" y1="12" x2="22" y2="12" />
                     </svg>
+                    <span className="text-[8px] font-extrabold text-white mt-0.5">ПРИЦ</span>
                   </button>
                   <button
                     type="button"
@@ -3985,15 +4244,16 @@ export default function App() {
                     onPointerUp={() => engineApiRef.current?.setFireHeld(false)}
                     onPointerCancel={() => engineApiRef.current?.setFireHeld(false)}
                     aria-label="Огонь"
-                    className="w-14 h-14 lg:w-16 lg:h-16 rounded-full bg-rose-600/50 hover:bg-rose-600/70 border-2 border-rose-400 flex items-center justify-center text-white shadow-xl active:scale-90 cursor-pointer"
+                    className="w-16 h-16 rounded-full bg-rose-600/80 hover:bg-rose-500 border-2 border-white flex flex-col items-center justify-center text-white shadow-[0_0_24px_rgba(225,29,72,0.8)] active:scale-90 cursor-pointer"
                   >
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                    <svg className="w-7 h-7 drop-shadow-[0_0_6px_rgba(255,255,255,0.9)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6">
                       <circle cx="12" cy="12" r="5" />
                       <line x1="12" y1="2" x2="12" y2="5" />
                       <line x1="12" y1="19" x2="12" y2="22" />
                       <line x1="2" y1="12" x2="5" y2="12" />
                       <line x1="19" y1="12" x2="22" y2="12" />
                     </svg>
+                    <span className="text-[9px] font-extrabold leading-none mt-0.5">ОГОНЬ</span>
                   </button>
                 </div>
 
@@ -4002,23 +4262,25 @@ export default function App() {
                     type="button"
                     onClick={() => engineApiRef.current?.toggleCrouch()}
                     aria-label="Присесть"
-                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
+                    className="w-12 h-12 rounded-2xl bg-[#0B0D13]/95 border-2 border-white/40 flex flex-col items-center justify-center text-white shadow-[0_4px_14px_rgba(0,0,0,0.9)] active:scale-90 cursor-pointer"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="6 9 12 15 18 9" />
                       <line x1="5" y1="19" x2="19" y2="19" />
                     </svg>
+                    <span className="text-[8px] font-extrabold mt-0.5">ПРИС</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => engineApiRef.current?.triggerJump()}
                     aria-label="Прыжок"
-                    className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-[#111318]/85 border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-90 cursor-pointer"
+                    className="w-12 h-12 rounded-2xl bg-[#0B0D13]/95 border-2 border-white/40 flex flex-col items-center justify-center text-white shadow-[0_4px_14px_rgba(0,0,0,0.9)] active:scale-90 cursor-pointer"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <svg className="w-5 h-5 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="18 15 12 9 6 15" />
                       <line x1="5" y1="5" x2="19" y2="5" />
                     </svg>
+                    <span className="text-[8px] font-extrabold mt-0.5">ПРЫЖ</span>
                   </button>
                 </div>
               </div>

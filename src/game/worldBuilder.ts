@@ -864,16 +864,80 @@ export function buildHorrorHouse(
     }),
   };
 
+  // 9. Outdoor Street, Grocery Store ("МАГАЗИН 24") & Gun Shop ("ОРУЖЕЙКА · АРСЕНАЛ")
+  const matAsphalt = M(0x1b1f26, 0.92, 0.05, { map: TX.concrete, bumpMap: TX.concrete, bumpScale: 0.025 });
+  const matBrickExt = M(0x4a251d, 0.88, 0.06, { map: TX.wallK, bumpMap: TX.wallK, bumpScale: 0.04 });
+  const matStoreFloor = M(0x9ca3af, 0.55, 0.12, { map: TX.concrete, bumpMap: TX.concrete, bumpScale: 0.015 });
+  const roadMesh = new THREE.Mesh(new THREE.PlaneGeometry(42, 34), matAsphalt);
+  roadMesh.rotation.x = -Math.PI / 2;
+  roadMesh.position.set(8, -0.01, 28);
+  world.add(roadMesh);
+
+  // Grocery Store ("МАГАЗИН 24"): x = -1..8, z = 24..34 (door at x = 3.5, z = 24)
+  const storeFloor = new THREE.Mesh(new THREE.PlaneGeometry(9, 10), matStoreFloor);
+  storeFloor.rotation.x = -Math.PI / 2;
+  storeFloor.position.set(3.5, 0.01, 29);
+  world.add(storeFloor);
+  put(new THREE.Mesh(new THREE.BoxGeometry(9, 3.2, 0.25), matBrickExt), 3.5, 1.6, 34, world);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.2, 10), matBrickExt), -1, 1.6, 29, world);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.2, 10), matBrickExt), 8, 1.6, 29, world);
+  put(new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 0.25), matBrickExt), 0.6, 1.6, 24, world);
+  put(new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 0.25), matBrickExt), 6.4, 1.6, 24, world);
+  addCol(-1.15, 33.8, 8.15, 34.2);
+  addCol(-1.15, 24, -0.85, 34);
+  addCol(7.85, 24, 8.15, 34);
+  addCol(-1, 23.85, 2.2, 24.15);
+  addCol(4.8, 23.85, 8, 24.15);
+  // Store shelves
+  for (const sx of [1.2, 5.8]) {
+    const shG = new THREE.Group();
+    shG.position.set(sx, 0, 29);
+    world.add(shG);
+    put(rbox(1.1, 1.8, 4.2, 0.02, matMetal), 0, 0.9, 0, shG);
+    for (let i = 0; i < 6; i++) {
+      put(mkCan(i), -0.25, 0.55 + (i % 2) * 0.45, -1.4 + i * 0.55, shG);
+      put(mkBottle(), 0.25, 0.5 + (i % 2) * 0.45, -1.3 + i * 0.5, shG);
+    }
+  }
+  const storeLight = new THREE.PointLight(0xccf0ff, 1.2, 14, 1.5);
+  storeLight.position.set(3.5, 2.9, 29);
+  world.add(storeLight);
+
+  // Gun Shop ("ОРУЖЕЙКА · АРСЕНАЛ") right next to Grocery Store: x = 9.2..17.8, z = 24..34 (door at x = 13.5, z = 24)
+  const gunFloor = new THREE.Mesh(new THREE.PlaneGeometry(8.6, 10), M(0x272a30, 0.65, 0.25));
+  gunFloor.rotation.x = -Math.PI / 2;
+  gunFloor.position.set(13.5, 0.01, 29);
+  world.add(gunFloor);
+  put(new THREE.Mesh(new THREE.BoxGeometry(8.6, 3.2, 0.25), matBrickExt), 13.5, 1.6, 34, world);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.2, 10), matBrickExt), 9.2, 1.6, 29, world);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.2, 10), matBrickExt), 17.8, 1.6, 29, world);
+  put(new THREE.Mesh(new THREE.BoxGeometry(3.0, 3.2, 0.25), matBrickExt), 10.7, 1.6, 24, world);
+  put(new THREE.Mesh(new THREE.BoxGeometry(3.0, 3.2, 0.25), matBrickExt), 16.3, 1.6, 24, world);
+  addCol(9.1, 33.8, 17.9, 34.2);
+  addCol(9.05, 24, 9.35, 34);
+  addCol(17.65, 24, 17.95, 34);
+  addCol(9.2, 23.85, 12.2, 24.15);
+  addCol(14.8, 23.85, 17.8, 24.15);
+  const armoryLight = new THREE.PointLight(0xffaa44, 1.4, 15, 1.5);
+  armoryLight.position.set(13.5, 2.9, 29);
+  world.add(armoryLight);
+
+  // Armored pedestals in Gun Shop for Desert Eagle, Sniper Rifle & Ammo Crate
+  put(rbox(1.8, 0.88, 0.75, 0.03, matDark), 11.4, 0.44, 28.0, world);
+  put(rbox(2.0, 0.88, 0.75, 0.03, matDark), 15.6, 0.44, 28.0, world);
+  put(rbox(3.2, 0.92, 0.85, 0.03, matWoodDark), 13.5, 0.46, 31.8, world);
+
   const gunProp = {
     deagle: buildGun('deagle'),
     sniper: buildGun('sniper'),
   };
-  gunProp.deagle.position.set(2.95, 0.6, 0.33);
-  gunProp.deagle.rotation.y = 0.5;
+  // Deagle & Sniper placed inside the Gun Shop ("ОРУЖЕЙКА") next to the Grocery Store!
+  gunProp.deagle.position.set(11.4, 0.94, 28.0);
+  gunProp.deagle.rotation.y = 0.45;
   world.add(gunProp.deagle);
 
   const caseG = new THREE.Group();
-  caseG.position.set(1.45, 0.06, 6.5);
+  caseG.position.set(15.6, 0.92, 28.0);
   world.add(caseG);
   put(rbox(1.3, 0.12, 0.35, 0.03, M(0x22252a, 0.6, 0.3)), 0, 0, 0, caseG);
   put(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 0.04), matMetal), 0, 0.07, 0, caseG);
@@ -881,9 +945,29 @@ export function buildHorrorHouse(
   gunProp.sniper.scale.set(0.9, 0.9, 0.9);
   gunProp.sniper.rotation.y = Math.PI / 2;
 
+  // 10. First-Person 3D Player Legs & Tactical Combat Boots (visible when looking down)
+  const playerLegsGroup = new THREE.Group();
+  const matCargoPants = M(0x1e293b, 0.88, 0.05, { map: TX.fabric, bumpMap: TX.fabric, bumpScale: 0.015 });
+  const matKneeGuard = M(0x0f172a, 0.45, 0.35);
+  const matCombatBoot = M(0x111114, 0.62, 0.25);
+  const mkPlayerLeg = (side: number) => {
+    const lg = new THREE.Group();
+    lg.position.set(side * 0.145, 0.78, 0.08);
+    put(cyl(0.088, 0.074, 0.42, matCargoPants, 10), 0, -0.18, 0, lg);
+    put(rbox(0.11, 0.11, 0.06, 0.015, matKneeGuard), 0, -0.36, -0.055, lg);
+    put(cyl(0.072, 0.058, 0.38, matCargoPants, 10), 0, -0.54, 0, lg);
+    put(rbox(0.125, 0.11, 0.27, 0.02, matCombatBoot), 0, -0.73, -0.06, lg);
+    playerLegsGroup.add(lg);
+    return lg;
+  };
+  const leftPlayerLeg = mkPlayerLeg(-1);
+  const rightPlayerLeg = mkPlayerLeg(1);
+  world.add(playerLegsGroup);
+
   let lastCellKey = -999999;
   let lastCellMat: SurfaceMaterial = 'wood';
   const detectSurface = (x: number, z: number): SurfaceMaterial => {
+    if (z > 12.1) return 'concrete';
     const cellKey = ((Math.round(x * 5) + 500) << 12) | (Math.round(z * 5) + 500);
     if (cellKey === lastCellKey) return lastCellMat;
     lastCellKey = cellKey;
@@ -910,5 +994,10 @@ export function buildHorrorHouse(
     radioLed,
     surfaceMeshes,
     detectSurface,
+    playerLegs: {
+      group: playerLegsGroup,
+      left: leftPlayerLeg,
+      right: rightPlayerLeg,
+    },
   };
 }

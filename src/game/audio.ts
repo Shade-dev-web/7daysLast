@@ -436,6 +436,32 @@ class HorrorAudioEngine {
     this.tone({ f: 48, f2: 31, vol: 0.48 * v, d: 0.16, delay: 0.21 });
   }
 
+  // Heavy shortness of breath / panting ("отдышка") with inhalation & exhalation formants
+  pant(v: number) {
+    const pv = clamp(v, 0.08, 1);
+    // Sharp gasping inhalation
+    this.nburst({
+      type: 'bandpass',
+      f: 920,
+      f2: 1280,
+      vol: 0.22 * pv,
+      d: 0.22,
+      a: 0.03,
+      q: 2.4,
+    });
+    // Exhausted wheezing exhalation
+    this.nburst({
+      type: 'bandpass',
+      f: 640,
+      f2: 340,
+      vol: 0.28 * pv,
+      d: 0.34,
+      a: 0.04,
+      q: 1.8,
+      delay: 0.27,
+    });
+  }
+
   bang() {
     this.tone({ f: 72, f2: 20, vol: 1, d: 0.65 });
     this.nburst({ type: 'lowpass', f: 920, f2: 160, vol: 1, d: 0.45 });
