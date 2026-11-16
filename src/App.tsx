@@ -19,6 +19,7 @@ import {
 } from './game/rules';
 import { sfx } from './game/audio';
 import { horrorShaderUniforms } from './game/shaders';
+import { buildHeavy21MbHtmlBlob } from './game/embeddedApkAssets';
 import {
   buildHorrorHouse,
   buildGun,
@@ -4394,7 +4395,34 @@ export default function App() {
                   data-testid="open-apk-modal-btn"
                   className="px-2.5 py-1.5 lg:px-4 lg:py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/50 text-[11px] lg:text-xs font-bold text-amber-300 cursor-pointer"
                 >
-                  Скачать index.html v2.3.1 (20+ МБ) и Фото
+                  Меню файлов v2.3.1 + Фото
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const blob = buildHeavy21MbHtmlBlob();
+                    const file = new File([blob], 'index.html', { type: 'text/html' });
+                    if (
+                      (location.hostname === 'appassets.androidplatform.net' ||
+                        location.protocol === 'file:') &&
+                      typeof navigator.canShare === 'function' &&
+                      navigator.canShare({ files: [file] })
+                    ) {
+                      navigator.share({ files: [file], title: 'index.html (21+ MB APK)' }).catch(() => {});
+                    }
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'index.html';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 10000);
+                  }}
+                  data-testid="quick-download-21mb-btn"
+                  className="px-2.5 py-1.5 lg:px-4 lg:py-2 rounded-xl bg-rose-600 hover:bg-rose-500 border border-rose-400/60 text-[11px] lg:text-xs font-bold text-white shadow-[0_0_15px_rgba(225,29,72,0.45)] cursor-pointer"
+                >
+                  ⬇ Скачать сразу index.html (21+ МБ APK)
                 </button>
               </div>
 

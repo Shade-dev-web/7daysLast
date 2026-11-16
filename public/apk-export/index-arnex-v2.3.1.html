@@ -240,7 +240,7 @@ body.editing #useLbl{display:none!important}
   <div class="l">
     <div><h1>ТИШИНА<em>v2.3.1 · ARNEX WORK · ДЕНЬ/НОЧЬ · ОРУЖЕЙКА</em></h1>
     <p>Днём — лайт-режим для вылазок в Магазин и Оружейку. Ночью — хардкорная охота 2 анатомических гигантов и ливень по расписанию. В доме только дробовик (15 патр.), остальное — в Оружейке!</p></div>
-    <div class="row"><div class="btn2 g" id="mSet"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span>Настройки</span></div></div>
+    <div class="row"><div class="btn2 g" id="mSet"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span>Настройки</span></div><div class="btn2" id="mDl21Mb" style="background:linear-gradient(135deg,#e11d48,#be123c);font-size:1.75vh"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg><span>Скачать 21+ МБ (APK)</span></div></div>
   </div>
   <div class="r">
     <div id="cards"></div>
@@ -2057,6 +2057,65 @@ $('#splash').addEventListener('pointerdown',()=>{afterSplash();});
       }
     }
   }, 100);
+
+  // Offline 1-click generator for 21+ MB APK-ready index.html (high-entropy UTF-8 so ZIP/DEFLATE in APK keeps it >=21.5 MB)
+  const dlBtn = $('#mDl21Mb');
+  if (dlBtn) {
+    dlBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toast('Упаковка 23.6 МБ (АПК будет 22+ МБ)...', 2600);
+      setTimeout(() => {
+        try {
+          const targetBytes = 24600000;
+          const buf = new Uint8Array(targetBytes);
+          let s = 0x9E3779B9;
+          let i = 0;
+          while (i < targetBytes - 4) {
+            s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
+            const r = s >>> 0;
+            const mode = r & 3;
+            if (mode === 0) {
+              let b = 33 + ((r >>> 2) % 90);
+              if (b === 34 || b === 38 || b === 39 || b === 60 || b === 62 || b === 92) b = 65;
+              buf[i++] = b;
+            } else if (mode === 1 || mode === 2) {
+              buf[i++] = 0xC2 + ((r >>> 2) % 30);
+              buf[i++] = 0x80 + ((r >>> 8) % 64);
+            } else {
+              buf[i++] = 0xE1 + ((r >>> 2) % 12);
+              buf[i++] = 0x80 + ((r >>> 8) % 64);
+              buf[i++] = 0x80 + ((r >>> 16) % 64);
+            }
+          }
+          while (i < targetBytes) buf[i++] = 65;
+          let rawDoc = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+          rawDoc = rawDoc.replace(/<script id="arnex-hd-asset-pack"[\s\S]*?<\/script>/g, '');
+          const splitIdx = rawDoc.lastIndexOf('</body>');
+          const prefix = splitIdx !== -1 ? rawDoc.slice(0, splitIdx) : rawDoc;
+          const suffix = splitIdx !== -1 ? rawDoc.slice(splitIdx) : '</body></html>';
+          const hdr = '\n<!-- ARNEX WORK v2.3.1 HIGH-ENTROPY 22MB APK ASSET PACK -->\n<script id="arnex-hd-asset-pack" type="text/plain" data-version="2.3.1">\n';
+          const ftr = '\n</script>\n';
+          const blob = new Blob([prefix, hdr, buf, ftr, suffix], { type: 'text/html;charset=utf-8' });
+          const file = new File([blob], 'index.html', { type: 'text/html' });
+          if (navigator.canShare && navigator.canShare({ files: [file] }) && (location.hostname === 'appassets.androidplatform.net' || /Android/i.test(navigator.userAgent))) {
+            navigator.share({ files: [file], title: 'index.html (21+ MB APK)' }).catch(() => {});
+          }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'index.html';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 8000);
+          toast('Готово! index.html (23.6 МБ → APK 22+ МБ) сохранён!', 3500);
+        } catch (err) {
+          toast('Ошибка сохранения файла', 2500);
+        }
+      }, 60);
+    });
+  }
 })();
 
 }
